@@ -1,6 +1,10 @@
 //! `su` is a command allowing to run an other command with a substitute user and group ID.
 
 use std::env;
+use std::process::Command;
+use std::process::exit;
+
+use utils::password::prompt_password;
 
 /// Structure representing the command's arguments.
 #[derive(Default)]
@@ -53,8 +57,32 @@ fn parse_args(args: Vec<String>) -> Args {
 
 fn main() {
 	let args: Vec<String> = env::args().collect();
-	let _args = parse_args(args);
+	let args = parse_args(args);
 
-	// TODO
-	todo!();
+	let _user = args.user.unwrap_or("root".to_owned());
+	// TODO Read user's entry
+	let shell = args.shell.unwrap_or("TODO".to_owned());
+
+	let _pass = prompt_password(None);
+	let correct = false; // TODO Check password against user's
+
+	if correct {
+		// TODO Change user
+
+		// Running the shell
+		let status = Command::new(&shell)
+			.args(args.args)
+			// TODO Set env
+			.status()
+			.unwrap_or_else(| _ | {
+				eprintln!("su: Failed to run shell `{}`", shell);
+				exit(1);
+			});
+
+		// Exiting with the shell's status
+		exit(status.code().unwrap());
+	} else {
+		eprintln!("su: Authentication failure");
+		exit(1);
+	}
 }
