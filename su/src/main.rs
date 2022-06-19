@@ -4,7 +4,7 @@ use std::env;
 use std::process::Command;
 use std::process::exit;
 
-use utils::password::prompt_password;
+use utils::prompt::prompt;
 
 /// Structure representing the command's arguments.
 #[derive(Default)]
@@ -63,7 +63,7 @@ fn main() {
 	// TODO Read user's entry
 	let shell = args.shell.unwrap_or("TODO".to_owned());
 
-	let _pass = prompt_password(None);
+	let _pass = prompt(None, true);
 	let correct = false; // TODO Check password against user's
 
 	if correct {

@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+	"login",
 	"utils",
     "su",
 ]

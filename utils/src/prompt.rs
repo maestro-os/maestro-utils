@@ -1,4 +1,4 @@
-//! This module implements password prompting.
+//! This module implements prompting.
 
 use std::io::BufRead;
 use std::io;
@@ -41,36 +41,42 @@ extern "C" {
 	fn set_termios(t: &Termios);
 }
 
-/// Show a prompts for a password. This function returns when a password has been entered.
+// TODO Add line edition
+/// Show a prompt. This function returns when a newline is received.
 /// `prompt` is the prompt's text. If None, the function uses the default text.
-pub fn prompt_password(prompt: Option<String>) -> String {
-	let prompt = prompt.unwrap_or("Password: ".to_owned());
+/// `hidden` tells whether the input is hidden.
+pub fn prompt(prompt: Option<&str>, hidden: bool) -> String {
+	let prompt = prompt.unwrap_or("Password: ");
 
 	// Saving termios state
 	let saved_termios = unsafe {
 		get_termios()
 	};
 
-	// Setting temporary termios
-	let mut termios = saved_termios.clone();
-	termios.c_iflag |= ICANON;
-	termios.c_iflag &= ECHO | ECHOE;
-	unsafe {
-		set_termios(&termios)
+	if hidden {
+		// Setting temporary termios
+		let mut termios = saved_termios.clone();
+		termios.c_iflag |= ICANON;
+		termios.c_iflag &= ECHO | ECHOE;
+		unsafe {
+			set_termios(&termios)
+		}
 	}
 
 	// Showing prompt
 	print!("{}", prompt);
 
-	// Reading password
-	let mut password = io::stdin().lock().lines().next().unwrap().unwrap_or(String::new());
+	// Reading input
+	let mut input = io::stdin().lock().lines().next().unwrap().unwrap_or(String::new());
 	// Remove newline
-	password.pop();
+	input.pop();
 
-	// Restoring termios state
-	unsafe {
-		set_termios(&saved_termios)
+	if hidden {
+		// Restoring termios state
+		unsafe {
+			set_termios(&saved_termios)
+		}
 	}
 
-	password
+	input
 }

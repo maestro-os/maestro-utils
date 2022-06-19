@@ -1,12 +1,10 @@
 //! The passwd, shadow and group files are mainly used to store respectively the users list, the
 //! passwords list and the groups list.
 
+use std::error::Error;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::io::Error;
-use std::io::ErrorKind;
-use std::io::Result;
 use std::io::Write;
 
 /// The path to the passwd file.
@@ -36,6 +34,15 @@ pub struct User {
 	pub interpreter: String,
 }
 
+impl User {
+	/// Check the given (not hashed) password `pass` against the current entry.
+	/// If the function returns None, the callee must use the shadow entry.
+	pub fn check_password(&self, pass: &str) -> Option<bool> {
+		// TODO
+		todo!();
+	}
+}
+
 /// Structure representing a shadow entry.
 pub struct Shadow {
 	/// The user's login name.
@@ -62,6 +69,14 @@ pub struct Shadow {
 	pub reserved: String,
 }
 
+impl Shadow {
+	/// Check the given (not hashed) password `pass` against the current entry.
+	pub fn check_password(&self, pass: &str) -> bool {
+		// TODO
+		todo!();
+	}
+}
+
 /// Structure representing a group.
 pub struct Group {
 	/// The group's name.
@@ -75,7 +90,7 @@ pub struct Group {
 }
 
 /// Reads and parses the file at path `path`.
-pub fn parse_user_file(path: &str) -> Result<Vec<Vec<String>>> {
+pub fn parse_file(path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
 	let file = File::open(path)?;
 	let mut data = vec![];
 
@@ -86,15 +101,65 @@ pub fn parse_user_file(path: &str) -> Result<Vec<Vec<String>>> {
 	Ok(data)
 }
 
+/// Reads the passwd file.
+/// `path` is the path to the file.
+pub fn read_passwd(path: &str) -> Result<Vec<User>, Box<dyn Error>> {
+	let entries = parse_file(path)?;
+	entries.into_iter()
+		.enumerate()
+		.map(| (i, data) | {
+			if data.len() != 7 {
+				return Err(format!("Invalid entry on line `{}`", i + 1).into());
+			}
+
+			Ok(User {
+				login_name: data[0].clone(),
+				password: data[1].clone(),
+				uid: data[2].parse::<_>()?,
+				gid: data[3].parse::<_>()?,
+				comment: data[4].clone(),
+				home: data[5].clone(),
+				interpreter: data[6].clone(),
+			})
+		})
+		.collect()
+}
+
+/// Reads the shadow file.
+/// `path` is the path to the file.
+pub fn read_shadow(path: &str) -> Result<Vec<Shadow>, Box<dyn Error>> {
+	let entries = parse_file(path)?;
+	entries.into_iter()
+		.enumerate()
+		.map(| (i, data) | {
+			if data.len() != 9 {
+				return Err(format!("Invalid entry on line `{}`", i + 1).into());
+			}
+
+			Ok(Shadow {
+				login_name: data[0].clone(),
+				password: data[1].clone(),
+				last_change: data[2].parse::<_>()?,
+				minimum_age: data[3].parse::<_>()?,
+				maximum_age: data[4].parse::<_>()?,
+				warning_period: data[5].parse::<_>()?,
+				inactivity_period: data[6].parse::<_>()?,
+				account_expiration: data[7].parse::<_>()?,
+				reserved: data[8].clone(),
+			})
+		})
+		.collect()
+}
+
 /// Writes the file at path `path` with data `data`.
-pub fn write(path: &str, data: &Vec<Vec<String>>) -> Result<()> {
+pub fn write(path: &str, data: &Vec<Vec<String>>) -> Result<(), Box<dyn Error>> {
 	let mut file = File::open(path)?;
 	let mut content = String::new();
 
 	for line in data {
 		for (i, elem) in line.iter().enumerate() {
 			if elem.contains(':') {
-				return Err(Error::new(ErrorKind::Other, "entry cannot contain character `:`"));
+				return Err("entry cannot contain character `:`".into());
 			}
 
 			content += elem;
