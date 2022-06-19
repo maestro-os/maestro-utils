@@ -14,6 +14,11 @@ pub const SHADOW_PATH: &str = "/etc/shadow";
 /// The path to the group file.
 pub const GROUP_PATH: &str = "/etc/group";
 
+extern "C" {
+	fn setuid(uid: u32) -> i32;
+	fn setgid(uid: u32) -> i32;
+}
+
 // TODO For each files, use a backup file with the same path but with `-` appended at the end
 
 /// Structure representing a user. This entry is present in the passwd file.
@@ -38,6 +43,10 @@ impl User {
 	/// Check the given (not hashed) password `pass` against the current entry.
 	/// If the function returns None, the callee must use the shadow entry.
 	pub fn check_password(&self, pass: &str) -> Option<bool> {
+		if self.password.is_empty() || self.password == "x" {
+			return None;
+		}
+
 		// TODO
 		todo!();
 	}
@@ -170,5 +179,24 @@ pub fn write(path: &str, data: &Vec<Vec<String>>) -> Result<(), Box<dyn Error>> 
 	}
 
 	file.write(content.as_bytes())?;
+	Ok(())
+}
+
+/// Sets the current user.
+pub fn set(uid: u32, gid: u32) -> Result<(), Box<dyn Error>> {
+	let result = unsafe {
+		setuid(uid)
+	};
+	if result < 0 {
+		return Err("Failed to set UID!".into());
+	}
+
+	let result = unsafe {
+		setgid(gid)
+	};
+	if result < 0 {
+		return Err("Failed to set GID!".into());
+	}
+
 	Ok(())
 }

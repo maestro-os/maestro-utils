@@ -1,6 +1,7 @@
 //! This module implements prompting.
 
 use std::io::BufRead;
+use std::io::Write;
 use std::io;
 
 /// Termcap flags.
@@ -17,6 +18,8 @@ const ICANON: TCFlag = 0o000002;
 const ECHO: TCFlag = 0o000010;
 /// TODO doc
 const ECHOE: TCFlag = 0o000020;
+/// TODO doc
+const VMIN: usize = 6;
 
 /// Terminal IO settings.
 #[repr(C)]
@@ -45,7 +48,7 @@ extern "C" {
 /// Show a prompt. This function returns when a newline is received.
 /// `prompt` is the prompt's text. If None, the function uses the default text.
 /// `hidden` tells whether the input is hidden.
-pub fn prompt(prompt: Option<&str>, hidden: bool) -> String {
+pub fn prompt(prompt: Option<&str>, hidden: bool) -> Option<String> {
 	let prompt = prompt.unwrap_or("Password: ");
 
 	// Saving termios state
@@ -56,8 +59,9 @@ pub fn prompt(prompt: Option<&str>, hidden: bool) -> String {
 	if hidden {
 		// Setting temporary termios
 		let mut termios = saved_termios.clone();
-		termios.c_iflag |= ICANON;
-		termios.c_iflag &= ECHO | ECHOE;
+		termios.c_lflag &= !(ICANON | ECHO | ECHOE);
+		termios.c_cc[VMIN] = 1;
+
 		unsafe {
 			set_termios(&termios)
 		}
@@ -65,18 +69,23 @@ pub fn prompt(prompt: Option<&str>, hidden: bool) -> String {
 
 	// Showing prompt
 	print!("{}", prompt);
+	let _ = io::stdout().flush();
 
 	// Reading input
-	let mut input = io::stdin().lock().lines().next().unwrap().unwrap_or(String::new());
-	// Remove newline
-	input.pop();
+	let input = io::stdin()
+		.lock()
+		.lines()
+		.next()?
+		.unwrap_or(String::new());
 
 	if hidden {
+		println!();
+
 		// Restoring termios state
 		unsafe {
 			set_termios(&saved_termios)
 		}
 	}
 
-	input
+	Some(input)
 }
