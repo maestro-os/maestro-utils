@@ -2,6 +2,7 @@
 
 members = [
 	"login",
+	"powerctl",
+	"su",
 	"utils",
-    "su",
 ]
