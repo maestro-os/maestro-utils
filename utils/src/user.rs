@@ -2,6 +2,7 @@
 //! passwords list and the groups list.
 
 use std::error::Error;
+use std::ffi::CString;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -17,6 +18,8 @@ pub const GROUP_PATH: &str = "/etc/group";
 extern "C" {
 	fn setuid(uid: u32) -> i32;
 	fn setgid(uid: u32) -> i32;
+
+    fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
 }
 
 // TODO For each files, use a backup file with the same path but with `-` appended at the end
@@ -47,8 +50,13 @@ impl User {
 			return None;
 		}
 
-		// TODO
-		todo!();
+        let pass = CString::new(pass).unwrap();
+        let password = CString::new(self.password.clone()).unwrap();
+        let result = unsafe {
+            check_pass(pass.as_ptr(), password.as_ptr()) != 0
+        };
+
+        Some(result)
 	}
 }
 
@@ -81,8 +89,12 @@ pub struct Shadow {
 impl Shadow {
 	/// Check the given (not hashed) password `pass` against the current entry.
 	pub fn check_password(&self, pass: &str) -> bool {
-		// TODO
-		todo!();
+        let pass = CString::new(pass).unwrap();
+        let password = CString::new(self.password.clone()).unwrap();
+
+        unsafe {
+            check_pass(pass.as_ptr(), password.as_ptr()) != 0
+        }
 	}
 }
 
