@@ -1,10 +1,13 @@
 //! `login` prompts a username/password to authenticate on a new session.
 
+use std::collections::HashMap;
 use std::env;
+use std::ffi::OsString;
 use std::process::Command;
 use std::process::exit;
 use std::time::Duration;
 use utils::prompt::prompt;
+use utils::user::User;
 use utils::user;
 use utils::util;
 
@@ -30,7 +33,7 @@ fn main() {
 		let shadow = user::read_shadow(user::SHADOW_PATH).ok();
 
 		// Getting user from prompted login
-		let user_entry = passwd.iter()
+		let user_entry = passwd.into_iter()
 			.filter(| e | e.login_name == login)
 			.next();
 
@@ -40,8 +43,7 @@ fn main() {
 				let correct = user_entry.check_password(&pass)
 					.unwrap_or_else(|| {
 						if let Some(shadow) = shadow {
-							println!("A");
-							shadow.iter()
+							shadow.into_iter()
 								.filter(| e | e.login_name == login)
 								.map(| e | e.check_password(&pass))
 								.next()
@@ -52,18 +54,29 @@ fn main() {
 					});
 
 				if correct {
+					let User {
+						uid,
+						gid,
+						home,
+						interpreter,
+						..
+					} = user_entry;
+
 					// Changing user
-					user::set(user_entry.uid, user_entry.gid).unwrap_or_else(| e | {
+					user::set(uid, gid).unwrap_or_else(| e | {
 						eprintln!("{}", e);
 						exit(1);
 					});
 
-					// Running the shell
-					let status = Command::new(&user_entry.interpreter)
-						// TODO Set env
+					let mut env = env::vars_os().collect::<HashMap<OsString, OsString>>();
+					env.insert("HOME".into(), home.into());
+
+					// Running the user's program
+					let status = Command::new(&interpreter)
+						.envs(env)
 						.status()
 						.unwrap_or_else(| _ | {
-							eprintln!("login: Failed to run shell `{}`", user_entry.interpreter);
+							eprintln!("login: Failed to run shell `{}`", interpreter);
 							exit(1);
 						});
 

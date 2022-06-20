@@ -148,12 +148,12 @@ pub fn read_shadow(path: &str) -> Result<Vec<Shadow>, Box<dyn Error>> {
 			Ok(Shadow {
 				login_name: data[0].clone(),
 				password: data[1].clone(),
-				last_change: data[2].parse::<_>()?,
-				minimum_age: data[3].parse::<_>()?,
-				maximum_age: data[4].parse::<_>()?,
-				warning_period: data[5].parse::<_>()?,
-				inactivity_period: data[6].parse::<_>()?,
-				account_expiration: data[7].parse::<_>()?,
+				last_change: data[2].parse::<_>().unwrap_or(0),
+				minimum_age: data[3].parse::<_>().unwrap_or(0),
+				maximum_age: data[4].parse::<_>().unwrap_or(0),
+				warning_period: data[5].parse::<_>().unwrap_or(0),
+				inactivity_period: data[6].parse::<_>().unwrap_or(0),
+				account_expiration: data[7].parse::<_>().unwrap_or(0),
 				reserved: data[8].clone(),
 			})
 		})
