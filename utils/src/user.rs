@@ -212,3 +212,19 @@ pub fn set(uid: u32, gid: u32) -> Result<(), Box<dyn Error>> {
 
 	Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_check_pass0() {
+		let pass = CString::new("123").unwrap();
+		let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
+		let result = unsafe {
+			check_pass(pass.as_ptr(), password.as_ptr()) != 0
+		};
+
+		assert!(result);
+	}
+}
