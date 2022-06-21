@@ -19,7 +19,7 @@ extern "C" {
 	fn setuid(uid: u32) -> i32;
 	fn setgid(uid: u32) -> i32;
 
-    fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
+    pub fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
 }
 
 // TODO For each files, use a backup file with the same path but with `-` appended at the end
@@ -211,20 +211,4 @@ pub fn set(uid: u32, gid: u32) -> Result<(), Box<dyn Error>> {
 	}
 
 	Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_check_pass0() {
-		let pass = CString::new("123").unwrap();
-		let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
-		let result = unsafe {
-			check_pass(pass.as_ptr(), password.as_ptr()) != 0
-		};
-
-		assert!(result);
-	}
 }
