@@ -3,6 +3,7 @@
 mod process;
 
 use process::Process;
+use process::ProcessIterator;
 use std::env;
 
 /// Enumeration of selectors used to accept or reject a process in the list.
@@ -58,7 +59,7 @@ impl Selector {
 fn main() {
 	let _args: Vec<String> = env::args().collect(); // TODO Parse and use
 
-	let _selectors = Vec::<Selector>::new();
+	let selectors = Vec::<Selector>::new();
 	// TODO Fill
 	// TODO If no filter is specified, use default
 
@@ -67,7 +68,7 @@ fn main() {
 	// Creating the process iterator and filtering processing according to arguments
 	// A process is accepted if it matches at least one selector (union)
 	let proc_iter = ProcessIterator::new().filter(| proc | {
-		for s in selectors {
+		for s in &selectors {
 			if s.is_accepted(proc) {
 				return true;
 			}
