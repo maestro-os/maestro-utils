@@ -2,7 +2,9 @@
 
 mod status_parser;
 
+use crate::format::DisplayFormat;
 use status_parser::StatusParser;
+use std::fmt;
 use std::fs::ReadDir;
 use std::fs;
 
@@ -28,6 +30,31 @@ pub struct Process {
 
 	/// The process's TTY.
 	pub tty: Option<String>,
+}
+
+impl Process {
+	/// Returns an instance of ProcessDisplay, used to display a process with the given format.
+	pub fn display<'p, 'f>(&'p self, format: &'f DisplayFormat) -> ProcessDisplay<'p, 'f> {
+		ProcessDisplay {
+			proc: self,
+			format,
+		}
+	}
+}
+
+/// Structure used to display a process's informations.
+pub struct ProcessDisplay<'p, 'f> {
+	/// The process.
+	proc: &'p Process,
+	/// The display format.
+	format: &'f DisplayFormat,
+}
+
+impl<'f, 'p> fmt::Display for ProcessDisplay<'f, 'p> {
+	fn fmt(&self, _fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+		// TODO
+		Ok(())
+	}
 }
 
 /// An iterator on the system's processes.

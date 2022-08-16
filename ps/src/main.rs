@@ -1,7 +1,9 @@
 //! The `ps` command allows to print the list of processes running on the system.
 
+mod format;
 mod process;
 
+use format::DisplayFormat;
 use process::Process;
 use process::ProcessIterator;
 use std::env;
@@ -59,11 +61,19 @@ impl Selector {
 fn main() {
 	let _args: Vec<String> = env::args().collect(); // TODO Parse and use
 
+	// Parsing selectors
 	let selectors = Vec::<Selector>::new();
 	// TODO Fill
 	// TODO If no filter is specified, use default
 
-	// TODO Print column description
+	// Parsing format
+	let format = DisplayFormat::default();
+	// TODO Add format parsing
+
+	// Printing header
+	if format.can_print() {
+		println!("{}", format);
+	}
 
 	// Creating the process iterator and filtering processing according to arguments
 	// A process is accepted if it matches at least one selector (union)
@@ -77,7 +87,8 @@ fn main() {
 		false
 	});
 
-	for _proc in proc_iter {
-		// TODO Print with format
+	// Printing processes
+	for proc in proc_iter {
+		println!("{}", proc.display(&format));
 	}
 }
