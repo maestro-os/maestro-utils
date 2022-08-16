@@ -17,7 +17,7 @@ impl<'a> StatusParser<'a> {
 		}
 	}
 
-	/// Creates a process structure using a the content of the file.
+	/// Creates a process structure using the content of the file.
 	pub fn yield_process(self) -> Result<Process, ()> {
 		let mut proc = Process::default();
 

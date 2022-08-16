@@ -37,6 +37,29 @@ pub enum Name {
 }
 
 impl Name {
+	/// Returns the variant associated with the given string.
+	fn from_str(s: &str) -> Option<Self> {
+		match s {
+			"ruser" => Some(Self::Ruser),
+			"user" => Some(Self::User),
+			"rgroup" => Some(Self::Rgroup),
+			"group" => Some(Self::Group),
+			"pid" => Some(Self::Pid),
+			"ppid" => Some(Self::Ppid),
+			"pgid" => Some(Self::Pgid),
+			"pcpu" => Some(Self::Pcpu),
+			"vsz" => Some(Self::Vsz),
+			"nice" => Some(Self::Nice),
+			"etime" => Some(Self::Etime),
+			"time" => Some(Self::Time),
+			"tty" => Some(Self::Tty),
+			"comm" => Some(Self::Comm),
+			"args" => Some(Self::Args),
+
+			_ => None,
+		}
+	}
+
 	/// Returns the default display name.
 	fn get_default_display(&self) -> &'static str {
 		match self {
@@ -53,8 +76,7 @@ impl Name {
 			Self::Etime => "ELAPSED",
 			Self::Time => "TIME",
 			Self::Tty => "TT",
-			Self::Comm => "COMMAND",
-			Self::Args => "COMMAND",
+			Self::Comm | Self::Args => "COMMAND",
 		}
 	}
 }
@@ -104,5 +126,43 @@ impl fmt::Display for DisplayFormat {
 		}
 
 		Ok(())
+	}
+}
+
+/// A parser for display formats.
+pub struct FormatParser<'a> {
+	/// The format to be parsed.
+	format: &'a str,
+}
+
+impl<'a> FormatParser<'a> {
+	/// Creates a new instance for the given format.
+	pub fn new(format: &'a str) -> Self {
+		Self {
+			format,
+		}
+	}
+
+	/// Parses the format and returns the corresponding structure.
+	pub fn yield_format(self) -> Result<DisplayFormat, ()> {
+		let mut names = vec![];
+
+		let s = self.format.split(|ch: char| ch == ',' || ch.is_ascii_whitespace());
+		for n in s {
+			if let Some((name, display_name)) = n.find('=').map(|i| n.split_at(i)) {
+				let name = Name::from_str(name).ok_or(())?;
+
+				names.push((name, display_name.to_owned()));
+			} else {
+				let name = Name::from_str(n).ok_or(())?;
+				let display_name = name.get_default_display();
+
+				names.push((name, display_name.to_owned()));
+			}
+		}
+
+		Ok(DisplayFormat {
+			names,
+		})
 	}
 }
