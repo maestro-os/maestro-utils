@@ -1,7 +1,11 @@
 //! Module implementing process structures.
 
+use std::error::Error;
+use std::fs::DirEntry;
 use std::fs::ReadDir;
 use std::fs;
+use std::io;
+use std::iter::FilterMap;
 
 /// Structure representing a process.
 pub struct Process {
@@ -29,7 +33,24 @@ impl ProcessIterator {
 	/// Creates a new instance.
 	pub fn new() -> Self {
 		Self {
-			files: fs::read_dir("/proc").unwrap(), // TODO Handle error properly
+			files: fs::read_dir("/proc").unwrap() // TODO Handle error properly
+		}
+	}
+
+	/// Returns the next PID in the iterator.
+	/// If no PID is left, the function returns None.
+	/// On error, the caller must retry.
+	fn next_pid(&mut self) -> Option<Result<u32, ()>> {
+		let entry = match self.files.next()? {
+			Ok(e) => e,
+			Err(e) => return Some(Err(())),
+		};
+
+		let file_name = entry.file_name().into_string();
+
+		match file_name {
+			Ok(file_name) => Some(file_name.parse::<u32>().map_err(| _ | ())),
+			Err(e) => Some(Err(())),
 		}
 	}
 }
@@ -38,17 +59,27 @@ impl Iterator for ProcessIterator {
 	type Item = Process;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		/*let _pid = self.files.map(| _entry | {
-				// TODO Get entry names
-				todo!();
-			})
-			.filter_map(| _name | {
-				// TODO Filter non-processes and map PIDs to integers
-				Some(0u32)
-			})
-			.next()?;*/
+		// Looping until finding a valid process or reaching the end
+		loop {
+			// Getting the next PID
+			let pid = match self.next_pid()? {
+				Ok(pid) => pid,
+				Err(_) => continue,
+			};
 
-		// TODO Retrieve informations from `/proc/{pid}/status`
-		todo!();
+			// The path to the process's status file
+			let path = format!("/proc/{}/status", pid);
+			// Reading the process's status file
+			let content = fs::read_to_string(path);
+
+			// Parsing process status
+			let status_parser = StatusParser::new(content);
+			match status_parser.yield_process() {
+				Ok(proc) => return proc,
+
+				// On fail, try next process
+				Err(_) => continue,
+			}
+		}
 	}
 }
