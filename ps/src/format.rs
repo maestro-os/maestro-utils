@@ -4,35 +4,35 @@ use std::fmt;
 
 /// Enumeration of data names.
 pub enum Name {
-	/// TODO doc
+	/// The real user ID.
 	Ruser,
-	/// TODO doc
+	/// The effective user ID.
 	User,
-	/// TODO doc
+	/// The real group ID.
 	Rgroup,
-	/// TODO doc
+	/// The effective group ID.
 	Group,
-	/// TODO doc
+	/// The process ID.
 	Pid,
-	/// TODO doc
+	/// The parent process ID.
 	Ppid,
-	/// TODO doc
+	/// The process group ID.
 	Pgid,
 	/// TODO doc
 	Pcpu,
 	/// TODO doc
 	Vsz,
-	/// TODO doc
+	/// The nice value.
 	Nice,
 	/// TODO doc
 	Etime,
 	/// TODO doc
 	Time,
-	/// TODO doc
+	/// The terminal.
 	Tty,
-	/// TODO doc
+	/// The name.
 	Comm,
-	/// TODO doc
+	/// The command line arguments.
 	Args,
 }
 
@@ -88,12 +88,24 @@ pub struct DisplayFormat {
 }
 
 impl DisplayFormat {
+	/// Creates a new empty instance.
+	pub fn new() -> Self {
+		Self {
+			names: Vec::new(),
+		}
+	}
+
 	/// Tells whether the display format can be printed.
 	pub fn can_print(&self) -> bool {
 		self.names.iter()
 			.filter(|(_, display_name)| !display_name.is_empty())
 			.next()
 			.is_some()
+	}
+
+	/// Concats the given format to the current.
+	pub fn concat(&mut self, mut other: Self) {
+		self.names.append(&mut other.names);
 	}
 }
 
@@ -119,7 +131,7 @@ impl fmt::Display for DisplayFormat {
 				// Add padding the same size as the default display name
 
 				let len = name.get_default_display().len() + 1;
-				for i in 0..len {
+				for _ in 0..len {
 					write!(fmt, " ")?;
 				}
 			}
@@ -149,10 +161,16 @@ impl<'a> FormatParser<'a> {
 
 		let s = self.format.split(|ch: char| ch == ',' || ch.is_ascii_whitespace());
 		for n in s {
-			if let Some((name, display_name)) = n.find('=').map(|i| n.split_at(i)) {
+			// Splitting name and display name
+			let split = n.find('=').map(|i| {
+				let (name, display_name) = n.split_at(i);
+				(name, display_name[1..].to_owned())
+			});
+
+			if let Some((name, display_name)) = split {
 				let name = Name::from_str(name).ok_or(())?;
 
-				names.push((name, display_name.to_owned()));
+				names.push((name, display_name));
 			} else {
 				let name = Name::from_str(n).ok_or(())?;
 				let display_name = name.get_default_display();

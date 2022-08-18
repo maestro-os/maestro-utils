@@ -3,13 +3,15 @@
 mod status_parser;
 
 use crate::format::DisplayFormat;
+use crate::format::Name;
 use status_parser::StatusParser;
 use std::fmt;
 use std::fs::ReadDir;
 use std::fs;
+use std::io;
 
 /// Structure representing a process.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Process {
 	/// The process's name.
 	pub name: String,
@@ -51,8 +53,27 @@ pub struct ProcessDisplay<'p, 'f> {
 }
 
 impl<'f, 'p> fmt::Display for ProcessDisplay<'f, 'p> {
-	fn fmt(&self, _fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-		// TODO
+	fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+		for (name, _) in &self.format.names {
+			match name {
+				Name::Ruser => write!(fmt, " {}", self.proc.ruid)?,
+				Name::User => write!(fmt, " {}", self.proc.uid)?,
+				Name::Rgroup => write!(fmt, " {}", self.proc.rgid)?,
+				Name::Group => write!(fmt, " {}", self.proc.gid)?,
+				Name::Pid => write!(fmt, " {}", self.proc.pid)?,
+				Name::Ppid => write!(fmt, " {}", self.proc.ppid)?,
+				Name::Pgid => todo!(), // TODO
+				Name::Pcpu => todo!(), // TODO
+				Name::Vsz => todo!(), // TODO
+				Name::Nice => todo!(), // TODO
+				Name::Etime => todo!(), // TODO
+				Name::Time => todo!(), // TODO
+				Name::Tty => todo!(), // TODO
+				Name::Comm => write!(fmt, " {}", self.proc.name)?,
+				Name::Args => todo!(), // TODO
+			}
+		}
+
 		Ok(())
 	}
 }
@@ -65,10 +86,10 @@ pub struct ProcessIterator {
 
 impl ProcessIterator {
 	/// Creates a new instance.
-	pub fn new() -> Self {
-		Self {
-			files: fs::read_dir("/proc").unwrap() // TODO Handle error properly
-		}
+	pub fn new() -> Result<Self, io::Error> {
+		Ok(Self {
+			files: fs::read_dir("/proc")?,
+		})
 	}
 
 	/// Returns the next PID in the iterator.

@@ -22,13 +22,14 @@ impl<'a> StatusParser<'a> {
 		let mut proc = Process::default();
 
 		for line in self.content.split('\n') {
-			// Splitting the line to get the name and value
-			let mut s = line.split(':');
-			let name = s.next().ok_or(())?.to_lowercase();
-			let value = s.next().ok_or(())?.trim();
-			if s.next().is_some() {
-				return Err(());
+			if line.is_empty() {
+				continue;
 			}
+
+			// Splitting the line to get the name and value
+			let (name, value) = line.find(':').map(|i| line.split_at(i)).ok_or(())?;
+			let name = name.to_lowercase();
+			let value = value[1..].trim();
 
 			match name.as_str() {
 				"name" => proc.name = value.to_string(),
@@ -40,13 +41,13 @@ impl<'a> StatusParser<'a> {
 					let mut s = value.split_whitespace();
 
 					proc.uid = s.nth(0).ok_or(())?.parse::<u32>().map_err(|_| ())?;
-					proc.ruid = s.nth(3).ok_or(())?.parse::<u32>().map_err(|_| ())?;
+					proc.ruid = s.nth(2).ok_or(())?.parse::<u32>().map_err(|_| ())?;
 				},
 				"gid" => {
 					let mut s = value.split_whitespace();
 
 					proc.gid = s.nth(0).ok_or(())?.parse::<u32>().map_err(|_| ())?;
-					proc.rgid = s.nth(3).ok_or(())?.parse::<u32>().map_err(|_| ())?;
+					proc.rgid = s.nth(2).ok_or(())?.parse::<u32>().map_err(|_| ())?;
 				},
 
 				// TODO tty
