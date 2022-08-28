@@ -186,7 +186,7 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 							Some(group) => selectors.push(Selector::Gid(group.gid)),
 
 							None => match group.parse::<u32>() {
-								Ok(uid) => selectors.push(Selector::Gid(uid)),
+								Ok(gid) => selectors.push(Selector::Gid(gid)),
 								Err(_) => {},
 							},
 						}
@@ -204,7 +204,7 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 							Some(group) => selectors.push(Selector::Rgid(group.gid)),
 
 							None => match group.parse::<u32>() {
-								Ok(uid) => selectors.push(Selector::Rgid(uid)),
+								Ok(gid) => selectors.push(Selector::Rgid(gid)),
 								Err(_) => {},
 							},
 						}
