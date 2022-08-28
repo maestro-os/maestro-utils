@@ -67,12 +67,15 @@ impl StatusParser {
 			}
 		}
 
-		proc.full_cmd = self.cmdline_content.chars()
+		// Getting full command line
+		let mut cmdline = self.cmdline_content.chars()
 			.map(|c| match c {
-				'\0' => '\n',
+				'\0' => ' ',
 				_ => c,
 			})
-			.collect();
+			.collect::<String>();
+		cmdline.pop();
+		proc.full_cmd = cmdline;
 
 		Ok(proc)
 	}

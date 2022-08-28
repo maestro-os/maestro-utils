@@ -70,8 +70,12 @@ impl<'f, 'p> fmt::Display for ProcessDisplay<'f, 'p> {
 				// TODO Name::Nice => todo!(),
 				// TODO Name::Etime => todo!(),
 				// TODO Name::Time => todo!(),
-				// TODO Name::Tty => todo!(),
-				// TODO Print args instead
+
+				Name::Tty => match &self.proc.tty {
+					Some(tty) => write!(fmt, " {}", tty)?,
+					None => write!(fmt, " ?")?,
+				},
+
 				Name::Comm => write!(fmt, " {}", self.proc.name)?,
 				Name::Args => write!(fmt, " {}", self.proc.full_cmd)?,
 			}

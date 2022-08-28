@@ -28,8 +28,8 @@ pub enum Name {
 	//Etime,
 	///// TODO doc
 	//Time,
-	///// The terminal.
-	//Tty,
+	/// The terminal.
+	Tty,
 	/// The name.
 	Comm,
 	/// The command line arguments.
@@ -52,7 +52,7 @@ impl Name {
 			// TODO "nice" => Some(Self::Nice),
 			// TODO "etime" => Some(Self::Etime),
 			// TODO "time" => Some(Self::Time),
-			// TODO "tty" => Some(Self::Tty),
+			"tty" => Some(Self::Tty),
 			"comm" => Some(Self::Comm),
 			"args" => Some(Self::Args),
 
@@ -75,7 +75,7 @@ impl Name {
 			// TODO Self::Nice => "NI",
 			// TODO Self::Etime => "ELAPSED",
 			// TODO Self::Time => "TIME",
-			// TODO Self::Tty => "TT",
+			Self::Tty => "TT",
 			Self::Comm | Self::Args => "COMMAND",
 		}
 	}
@@ -114,7 +114,7 @@ impl Default for DisplayFormat {
 		Self {
 			names: vec![
 				(Name::Pid, Name::Pid.get_default_display().to_owned()),
-				// TODO (Name::Tty, Name::Tty.get_default_display().to_owned()),
+				(Name::Tty, Name::Tty.get_default_display().to_owned()),
 				// TODO (Name::Time, Name::Time.get_default_display().to_owned()),
 				(Name::Comm, Name::Comm.get_default_display().to_owned()),
 			],
