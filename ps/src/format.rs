@@ -16,20 +16,20 @@ pub enum Name {
 	Pid,
 	/// The parent process ID.
 	Ppid,
-	/// The process group ID.
-	Pgid,
-	/// TODO doc
-	Pcpu,
-	/// TODO doc
-	Vsz,
-	/// The nice value.
-	Nice,
-	/// TODO doc
-	Etime,
-	/// TODO doc
-	Time,
-	/// The terminal.
-	Tty,
+	///// The process group ID.
+	//Pgid,
+	///// TODO doc
+	//Pcpu,
+	///// TODO doc
+	//Vsz,
+	///// The nice value.
+	//Nice,
+	///// TODO doc
+	//Etime,
+	///// TODO doc
+	//Time,
+	///// The terminal.
+	//Tty,
 	/// The name.
 	Comm,
 	/// The command line arguments.
@@ -46,13 +46,13 @@ impl Name {
 			"group" => Some(Self::Group),
 			"pid" => Some(Self::Pid),
 			"ppid" => Some(Self::Ppid),
-			"pgid" => Some(Self::Pgid),
-			"pcpu" => Some(Self::Pcpu),
-			"vsz" => Some(Self::Vsz),
-			"nice" => Some(Self::Nice),
-			"etime" => Some(Self::Etime),
-			"time" => Some(Self::Time),
-			"tty" => Some(Self::Tty),
+			// TODO "pgid" => Some(Self::Pgid),
+			// TODO "pcpu" => Some(Self::Pcpu),
+			// TODO "vsz" => Some(Self::Vsz),
+			// TODO "nice" => Some(Self::Nice),
+			// TODO "etime" => Some(Self::Etime),
+			// TODO "time" => Some(Self::Time),
+			// TODO "tty" => Some(Self::Tty),
 			"comm" => Some(Self::Comm),
 			"args" => Some(Self::Args),
 
@@ -69,13 +69,13 @@ impl Name {
 			Self::Group => "GROUP",
 			Self::Pid => "PID",
 			Self::Ppid => "PPID",
-			Self::Pgid => "PGID",
-			Self::Pcpu => "%CPU",
-			Self::Vsz => "VSZ",
-			Self::Nice => "NI",
-			Self::Etime => "ELAPSED",
-			Self::Time => "TIME",
-			Self::Tty => "TT",
+			// TODO Self::Pgid => "PGID",
+			// TODO Self::Pcpu => "%CPU",
+			// TODO Self::Vsz => "VSZ",
+			// TODO Self::Nice => "NI",
+			// TODO Self::Etime => "ELAPSED",
+			// TODO Self::Time => "TIME",
+			// TODO Self::Tty => "TT",
 			Self::Comm | Self::Args => "COMMAND",
 		}
 	}
@@ -114,8 +114,8 @@ impl Default for DisplayFormat {
 		Self {
 			names: vec![
 				(Name::Pid, Name::Pid.get_default_display().to_owned()),
-				(Name::Tty, Name::Tty.get_default_display().to_owned()),
-				(Name::Time, Name::Time.get_default_display().to_owned()),
+				// TODO (Name::Tty, Name::Tty.get_default_display().to_owned()),
+				// TODO (Name::Time, Name::Time.get_default_display().to_owned()),
 				(Name::Comm, Name::Comm.get_default_display().to_owned()),
 			],
 		}

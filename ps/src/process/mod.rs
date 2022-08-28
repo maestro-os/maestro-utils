@@ -15,6 +15,8 @@ use std::io;
 pub struct Process {
 	/// The process's name.
 	pub name: String,
+	/// The full command.
+	pub full_cmd: String,
 
 	/// The process's PID.
 	pub pid: u32,
@@ -62,15 +64,16 @@ impl<'f, 'p> fmt::Display for ProcessDisplay<'f, 'p> {
 				Name::Group => write!(fmt, " {}", self.proc.gid)?,
 				Name::Pid => write!(fmt, " {}", self.proc.pid)?,
 				Name::Ppid => write!(fmt, " {}", self.proc.ppid)?,
-				Name::Pgid => todo!(), // TODO
-				Name::Pcpu => todo!(), // TODO
-				Name::Vsz => todo!(), // TODO
-				Name::Nice => todo!(), // TODO
-				Name::Etime => todo!(), // TODO
-				Name::Time => todo!(), // TODO
-				Name::Tty => todo!(), // TODO
+				// TODO Name::Pgid => write!(fmt, " {}", self.proc.pgid)?,
+				// TODO Name::Pcpu => todo!(),
+				// TODO Name::Vsz => todo!(),
+				// TODO Name::Nice => todo!(),
+				// TODO Name::Etime => todo!(),
+				// TODO Name::Time => todo!(),
+				// TODO Name::Tty => todo!(),
+				// TODO Print args instead
 				Name::Comm => write!(fmt, " {}", self.proc.name)?,
-				Name::Args => todo!(), // TODO
+				Name::Args => write!(fmt, " {}", self.proc.full_cmd)?,
 			}
 		}
 
@@ -108,6 +111,12 @@ impl ProcessIterator {
 			Err(_) => Some(Err(())),
 		}
 	}
+
+	/// Parses the status of process with PID `pid`.
+	fn yield_proc(pid: u32) -> Result<Process, ()> {
+		let status_parser = StatusParser::new(pid).map_err(|_| ())?;
+		status_parser.yield_process()
+	}
 }
 
 impl Iterator for ProcessIterator {
@@ -122,17 +131,8 @@ impl Iterator for ProcessIterator {
 				Err(_) => continue,
 			};
 
-			// The path to the process's status file
-			let path = format!("/proc/{}/status", pid);
-			// Reading the process's status file
-			let content = match fs::read_to_string(path) {
-				Ok(content) => content,
-				Err(_) => continue,
-			};
-
 			// Parsing process status
-			let status_parser = StatusParser::new(&content);
-			match status_parser.yield_process() {
+			match Self::yield_proc(pid) {
 				Ok(proc) => return Some(proc),
 
 				// On fail, try next process

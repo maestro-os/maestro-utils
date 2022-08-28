@@ -1,27 +1,38 @@
 //! This module implements a parser for the status of a process.
 
+use std::fs;
+use std::io;
 use super::Process;
 
 /// The status parser parses the content of the file `/proc/{pid}/status`, where `{pid}` is the pid
 /// of the process.
-pub struct StatusParser<'a> {
-	/// The file's content.
-	content: &'a str,
+pub struct StatusParser {
+	/// The status file's content.
+	status_content: String,
+	/// The cmdline file's content.
+	cmdline_content: String,
 }
 
-impl<'a> StatusParser<'a> {
-	/// Creates a new instance with the given file content.
-	pub fn new(content: &'a str) -> Self {
-		Self {
-			content,
-		}
+impl StatusParser {
+	/// Creates a new instance for the given pid `pid`.
+	pub fn new(pid: u32) -> Result<Self, io::Error> {
+		// Reading the process's status file
+		let status_content = fs::read_to_string(format!("/proc/{}/status", pid))?;
+
+		// Reading the process's status file
+		let cmdline_content = fs::read_to_string(format!("/proc/{}/cmdline", pid))?;
+
+		Ok(Self {
+			status_content,
+			cmdline_content,
+		})
 	}
 
-	/// Creates a process structure using the content of the file.
+	/// Creates a process structure from files.
 	pub fn yield_process(self) -> Result<Process, ()> {
 		let mut proc = Process::default();
 
-		for line in self.content.split('\n') {
+		for line in self.status_content.split('\n') {
 			if line.is_empty() {
 				continue;
 			}
@@ -55,6 +66,13 @@ impl<'a> StatusParser<'a> {
 				_ => {},
 			}
 		}
+
+		proc.full_cmd = self.cmdline_content.chars()
+			.map(|c| match c {
+				'\0' => '\n',
+				_ => c,
+			})
+			.collect();
 
 		Ok(proc)
 	}
