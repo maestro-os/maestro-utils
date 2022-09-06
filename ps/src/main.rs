@@ -2,6 +2,7 @@
 
 mod format;
 mod process;
+mod util;
 
 use format::DisplayFormat;
 use format::FormatParser;
@@ -16,6 +17,7 @@ use std::process::exit;
 
 extern "C" {
     fn geteuid() -> u32;
+    fn getegid() -> u32;
 }
 
 /// Enumeration of selectors used to accept or reject a process in the list.
@@ -49,7 +51,7 @@ impl Selector {
 
 			Self::NoLeaders => {
 				// TODO
-				todo!();
+				true
 			},
 
 			Self::Gid(gid) => proc.gid == *gid,
@@ -77,12 +79,24 @@ fn print_usage() {
 	eprintln!("For more details see ps(1).");
 }
 
+/// Prints an error, then exits.
+fn error(msg: &str) -> ! {
+	eprintln!("error: {}", msg);
+
+	print_usage();
+	exit(1);
+}
+
 /// Parses arguments and returns the selectors list and format.
 fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 	// Results
 	let mut selectors = Vec::new();
 	let mut format = DisplayFormat::new();
 	let mut default_format = true;
+
+	// Reading users and groups lists
+	let users = utils::user::read_passwd(utils::user::PASSWD_PATH).unwrap_or(vec![]);
+	let groups = utils::user::read_group(utils::user::GROUP_PATH).unwrap_or(vec![]);
 
 	// TODO -l and -f
 	let mut args = env::args().skip(1);
@@ -101,50 +115,105 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 						default_format = false;
 					},
 
-					Err(_) => {
-						eprintln!("error: invalid format");
-
-						print_usage();
-						exit(1);
-					},
+					Err(_) => error("invalid format"),
 				}
 			} else {
-				eprintln!("error: format specification must follow -o");
-
-				print_usage();
-				exit(1);
+				error("format specification must follow -o");
 			},
 
-			"-p" => {
-				// TODO
+			"-p" => if let Some(pids_str) = args.next() {
+				let iter = match util::parse_nbr_list(&pids_str) {
+					Ok(list) => list.into_iter(),
+
+					Err(_) => error("process ID list syntax error"),
+				};
+
+				let mut pids = iter.map(| pid | Selector::Pid(pid)).collect();
+				selectors.append(&mut pids);
+			} else {
+				error("list of process IDs must follow -p");
 			},
 
-			"-t" => {
-				// TODO
+			"-t" => if let Some(termlist) = args.next() {
+				let mut terms = util::parse_str_list(&termlist)
+					.into_iter()
+					.map(| pid | Selector::Term(pid))
+					.collect();
+
+				selectors.append(&mut terms);
+			} else {},
+
+			"-u" => if let Some(users_list) = args.next() {
+				util::parse_str_list(&users_list)
+					.into_iter()
+					.for_each(| user | {
+						match users.iter().find(| u | u.login_name == user) {
+							Some(user) => selectors.push(Selector::Uid(user.uid)),
+
+							None => match user.parse::<u32>() {
+								Ok(uid) => selectors.push(Selector::Uid(uid)),
+								Err(_) => {},
+							},
+						}
+					});
+			} else {
+				let uid = unsafe { geteuid() };
+				selectors.push(Selector::Uid(uid));
 			},
 
-			"-u" => {
-				// TODO
+			"-U" => if let Some(users_list) = args.next() {
+				util::parse_str_list(&users_list)
+					.into_iter()
+					.for_each(| user | {
+						match users.iter().find(| u | u.login_name == user) {
+							Some(user) => selectors.push(Selector::Ruid(user.uid)),
+
+							None => match user.parse::<u32>() {
+								Ok(uid) => selectors.push(Selector::Ruid(uid)),
+								Err(_) => {},
+							},
+						}
+					});
+			} else {
+				error("list of real users must follow -U");
 			},
 
-			"-U" => {
-				// TODO
+			"-g" => if let Some(groups_list) = args.next() {
+				util::parse_str_list(&groups_list)
+					.into_iter()
+					.for_each(| group | {
+						match groups.iter().find(| g | g.group_name == group) {
+							Some(group) => selectors.push(Selector::Gid(group.gid)),
+
+							None => match group.parse::<u32>() {
+								Ok(gid) => selectors.push(Selector::Gid(gid)),
+								Err(_) => {},
+							},
+						}
+					});
+			} else {
+				let gid = unsafe { getegid() };
+				selectors.push(Selector::Gid(gid));
 			},
 
-			"-g" => {
-				// TODO
+			"-G" => if let Some(groups_list) = args.next() {
+				util::parse_str_list(&groups_list)
+					.into_iter()
+					.for_each(| group | {
+						match groups.iter().find(| g | g.group_name == group) {
+							Some(group) => selectors.push(Selector::Rgid(group.gid)),
+
+							None => match group.parse::<u32>() {
+								Ok(gid) => selectors.push(Selector::Rgid(gid)),
+								Err(_) => {},
+							},
+						}
+					});
+			} else {
+				error("list of real groups must follow -G");
 			},
 
-			"-G" => {
-				// TODO
-			},
-
-			_ => {
-				eprintln!("error: garbage option");
-
-				print_usage();
-				exit(1);
-			},
+			_ => error("error: garbage option"),
 		}
 	}
 
@@ -182,6 +251,8 @@ fn main() {
 			exit(1);
 		},
 	};
+
+	// TODO When a PID, UID, GID... is specified, use files' metadata to avoid reading
 
 	// Filtering processes according to arguments
 	// A process is accepted if it matches at least one selector (union)

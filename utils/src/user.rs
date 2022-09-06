@@ -105,7 +105,7 @@ pub struct Group {
 	/// The encrypted group's password.
 	pub password: String,
 	/// The group's ID.
-	pub gid: String,
+	pub gid: u32,
 	/// The list of users member of this group, comma-separated.
 	pub users_list: String,
 }
@@ -167,6 +167,27 @@ pub fn read_shadow(path: &str) -> Result<Vec<Shadow>, Box<dyn Error>> {
 				inactivity_period: data[6].parse::<_>().unwrap_or(0),
 				account_expiration: data[7].parse::<_>().unwrap_or(0),
 				reserved: data[8].clone(),
+			})
+		})
+		.collect()
+}
+
+/// Reads the group file.
+/// `path` is the path to the file.
+pub fn read_group(path: &str) -> Result<Vec<Group>, Box<dyn Error>> {
+	let entries = parse_file(path)?;
+	entries.into_iter()
+		.enumerate()
+		.map(| (i, data) | {
+			if data.len() != 4 {
+				return Err(format!("Invalid entry on line `{}`", i + 1).into());
+			}
+
+			Ok(Group {
+				group_name: data[0].clone(),
+				password: data[1].clone(),
+				gid: data[2].parse::<_>()?,
+				users_list: data[3].clone(),
 			})
 		})
 		.collect()
