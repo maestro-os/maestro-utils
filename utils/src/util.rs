@@ -12,6 +12,16 @@ pub fn get_timestamp() -> Duration {
 		.expect("System clock panic!")
 }
 
+/// Returns the hostname of the system.
+pub fn get_hostname() -> String {
+	let mut hostname: [0; 4096] = [u8; 4096];
+
+	unsafe {
+		libc::gethostname(hostname.as_mut_ptr() as _, hostname.len());
+		String::from_raw_parts(hostname.as_ptr(), hostname.len(), hostname.len())
+	}
+}
+
 /// Executes the closure `f`.
 /// If the closure returns Ok, the function returns directly. If it return an error, the function
 /// ensures the execution takes at least the given duration `d`.

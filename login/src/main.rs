@@ -18,8 +18,7 @@ fn main() {
 		println!();
 
 		// Getting user prompt
-		let hostname = "TODO"; // TODO Get hostname
-		let user_prompt = format!("{} login: ", hostname);
+		let user_prompt = format!("{} login: ", util::get_hostname());
 
 		// Prompting login and password
 		let login = prompt(Some(&user_prompt), false).unwrap_or_else(|| exit(1));
