@@ -1,5 +1,6 @@
 //! This module implements utility functions.
 
+use std::ffi::CStr;
 use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -14,11 +15,11 @@ pub fn get_timestamp() -> Duration {
 
 /// Returns the hostname of the system.
 pub fn get_hostname() -> String {
-	let mut hostname: [0; 4096] = [u8; 4096];
+	let mut hostname: [i8; 4096] = [0; 4096];
 
 	unsafe {
 		libc::gethostname(hostname.as_mut_ptr() as _, hostname.len());
-		String::from_raw_parts(hostname.as_ptr(), hostname.len(), hostname.len())
+		CStr::from_ptr(hostname.as_ptr()).to_str().unwrap().to_owned()
 	}
 }
 
