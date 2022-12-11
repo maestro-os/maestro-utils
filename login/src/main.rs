@@ -1,7 +1,10 @@
 //! `login` prompts a username/password to authenticate on a new session.
 
+#![feature(never_type)]
+
 use std::collections::HashMap;
 use std::env;
+use std::error::Error;
 use std::ffi::OsString;
 use std::process::Command;
 use std::process::exit;
@@ -10,6 +13,39 @@ use utils::prompt::prompt;
 use utils::user::User;
 use utils::user;
 use utils::util;
+
+/// Switches to the given user after login is successful.
+///
+/// Arguments:
+/// - `logname` is the name of the user used to login.
+/// - `user` is the user to switch to.
+fn switch_user(logname: &str, user: &User) -> Result<!, Box<dyn Error>> {
+	let User {
+		uid,
+		gid,
+		home,
+		interpreter,
+		..
+	} = user;
+
+	// Changing user
+	user::set(*uid, *gid)?;
+
+	let mut env = env::vars_os().collect::<HashMap<OsString, OsString>>();
+	env.insert("HOME".into(), home.into());
+	env.insert("LOGNAME".into(), logname.into());
+
+	// TODO Execute without fork
+	// Running the user's program
+	let status = Command::new(&interpreter)
+		.current_dir(home)
+		.envs(env)
+		.status()
+		.map_err(|_| format!("login: Failed to run shell `{}`", interpreter))?;
+
+	// Exiting with the shell's status
+	exit(status.code().unwrap());
+}
 
 fn main() {
 	let _args: Vec<String> = env::args().collect(); // TODO Parse and use
@@ -53,34 +89,11 @@ fn main() {
 					});
 
 				if correct {
-					let User {
-						uid,
-						gid,
-						home,
-						interpreter,
-						..
-					} = user_entry;
-
-					// Changing user
-					user::set(uid, gid).unwrap_or_else(| e | {
-						eprintln!("{}", e);
-						exit(1);
-					});
-
-					let mut env = env::vars_os().collect::<HashMap<OsString, OsString>>();
-					env.insert("HOME".into(), home.into());
-
-					// Running the user's program
-					let status = Command::new(&interpreter)
-						.envs(env)
-						.status()
-						.unwrap_or_else(| _ | {
-							eprintln!("login: Failed to run shell `{}`", interpreter);
+					switch_user(&login, &user_entry)
+						.unwrap_or_else(|e| {
+							eprintln!("login: {}", e);
 							exit(1);
 						});
-
-					// Exiting with the shell's status
-					exit(status.code().unwrap());
 				}
 			}
 		});

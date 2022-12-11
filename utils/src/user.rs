@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+use std::path::PathBuf;
 
 /// The path to the passwd file.
 pub const PASSWD_PATH: &str = "/etc/passwd";
@@ -37,7 +38,7 @@ pub struct User {
 	/// User comment.
 	pub comment: String,
 	/// User's home path.
-	pub home: String,
+	pub home: PathBuf,
 	/// User's command interpreter.
 	pub interpreter: String,
 }
@@ -139,7 +140,7 @@ pub fn read_passwd(path: &str) -> Result<Vec<User>, Box<dyn Error>> {
 				uid: data[2].parse::<_>()?,
 				gid: data[3].parse::<_>()?,
 				comment: data[4].clone(),
-				home: data[5].clone(),
+				home: data[5].clone().into(),
 				interpreter: data[6].clone(),
 			})
 		})
