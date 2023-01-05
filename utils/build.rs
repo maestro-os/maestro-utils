@@ -7,6 +7,5 @@ fn main() {
 	cc::Build::new()
         .static_flag(true)
 		.file("src/hash.c")
-		.file("src/termios.c")
 		.compile("utils")
 }
