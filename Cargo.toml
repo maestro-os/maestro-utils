@@ -5,7 +5,6 @@ members = [
 	"login",
 	"powerctl",
 	"ps",
-	"sfdisk",
 	"su",
 	"utils",
 ]

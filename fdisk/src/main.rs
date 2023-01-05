@@ -1,4 +1,7 @@
 //! `fdisk` is an utility command used to manipulate disk partition tables.
+//!
+//! The `sfdisk` is also implemented in the same program, it has the purpose as `fdisk`, except it
+//! uses scripting instead of prompting.
 
 use std::env;
 use std::path::PathBuf;
