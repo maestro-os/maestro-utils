@@ -1,0 +1,17 @@
+name: Check
+on: push
+jobs:
+    Compilation:
+        runs-on: [self-hosted, linux]
+        steps:
+            - uses: actions/checkout@v2
+            - name: Debug
+              run: cargo build
+            - name: Release
+              run: cargo build --release
+    Test:
+        runs-on: [self-hosted, linux]
+        steps:
+            - uses: actions/checkout@v2
+            - name: Test
+              run: cargo test
