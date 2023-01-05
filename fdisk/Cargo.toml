@@ -1,0 +1,15 @@
+[package]
+name = "fdisk"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "fdisk_common"
+path = "src/lib.rs"
+
+[[bin]]
+name = "fdisk"
+path = "src/main.rs"
+
+[dependencies]
+utils = { path = "../utils" }

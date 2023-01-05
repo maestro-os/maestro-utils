@@ -46,8 +46,10 @@ extern "C" {
 
 // TODO Add line edition
 /// Show a prompt. This function returns when a newline is received.
-/// `prompt` is the prompt's text. If None, the function uses the default text.
-/// `hidden` tells whether the input is hidden.
+///
+/// Arguments:
+/// - `prompt` is the prompt's text. If None, the function uses the default text.
+/// - `hidden` tells whether the input is hidden.
 pub fn prompt(prompt: Option<&str>, hidden: bool) -> Option<String> {
 	let prompt = prompt.unwrap_or("Password: ");
 

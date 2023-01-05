@@ -1,9 +1,15 @@
 [workspace]
 
 members = [
+	"fdisk",
 	"login",
 	"powerctl",
 	"ps",
+	"sfdisk",
 	"su",
 	"utils",
 ]
+
+[profile.release]
+lto = true
+strip = true
