@@ -12,4 +12,5 @@ name = "fdisk"
 path = "src/main.rs"
 
 [dependencies]
+libc = "0.2.139"
 utils = { path = "../utils" }
