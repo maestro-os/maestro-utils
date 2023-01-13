@@ -1,18 +1,14 @@
 //! TODO doc
 
 use libc::ioctl;
-use std::ffi::OsString;
 use std::fmt;
 use std::fs::File;
 use std::fs;
 use std::io::Error;
 use std::io;
-use std::io;
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
-use std::process::Stdio;
 use std::str;
 
 /// ioctl macro: TODO doc
@@ -230,45 +226,49 @@ impl Disk {
 		false
 	}
 
+	/// Reads a disk's informations from the given device path `dev_path`.
+	///
+	/// If the path doesn't point to a valid device, the function returns None.
+	pub fn read(dev_path: PathBuf) -> io::Result<Option<Self>> {
+		// Filter devices
+		if !Self::is_valid(&dev_path) {
+			return Ok(None);
+		}
+
+		// Getting the number of sectors on the disk
+		let file = File::open(&dev_path)?;
+		let Ok(size) = get_disk_size(&file) else {
+			return Ok(None);
+		};
+
+		// TODO read partitions table from disk
+		let partitions = Vec::new();
+
+		Ok(Some(Self {
+			dev_path,
+			size,
+
+			partitions,
+		}))
+	}
+
+	/// Writes the partition table to the disk.
+	pub fn write(&self) -> io::Result<()> {
+		// TODO
+		todo!();
+	}
+
 	/// Lists disks present on the system.
 	pub fn list() -> io::Result<Vec<Self>> {
 		let mut disks = vec![];
 
 		for dev in fs::read_dir("/dev")? {
 			let dev_path = dev?.path();
-
-			// Filter devices
-			if !Self::is_valid(&dev_path) {
-				continue;
-			}
-
-			// Getting the number of sectors on the disk
-			let Ok(size) = File::open(&dev_path).map(|file| {
-				crate::get_disk_size(&file)
-			}) else {
+			let Some(dev) = Self::read(dev_path)? else {
 				continue;
 			};
 
-			let output = Command::new("sfdisk")
-				.args(&[OsString::from("-d").as_os_str(), dev_path.as_os_str()])
-				.stdout(Stdio::piped())
-				.stderr(Stdio::null())
-				.output()?;
-			if !output.status.success() {
-				continue;
-			}
-
-			let Ok(script) = str::from_utf8(&output.stdout) else {
-				continue;
-			};
-			let partitions = Partition::deserialize(script);
-
-			disks.push(Self {
-				dev_path,
-				size,
-
-				partitions,
-			});
+			disks.push(dev);
 		}
 
 		Ok(disks)
@@ -285,15 +285,38 @@ impl Disk {
 	}
 }
 
+impl fmt::Display for Disk {
+	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+		// TODO
+		write!(fmt, "Disk TODO: TODO MiB, TODO bytes, TODO sectors")?;
+		write!(fmt, "Disk model: TODO")?;
+		write!(fmt, "Units: sectors of TODO * TODO = TODO bytes")?;
+		write!(fmt, "Sector size (logical/physical): TODO bytes / TODO bytes")?;
+		write!(fmt, "I/O size (minimum/optimal): TODO bytes / TODO bytes")?;
+		write!(fmt, "Disklabel type: TODO")?;
+		write!(fmt, "Disk identifier: TODO")?;
+
+		// TODO If disk has partitions:
+		write!(fmt, "\nDevice\tStart\tEnd\tSectors\tSize\tType")?;
+		// TODO loop:
+		write!(fmt, "/dev/TODO\tTODO\tTODO\tTODO\tTODO\tTODO")?;
+
+		Ok(())
+	}
+}
+
 /// Returns the number of sectors on the given device.
-pub fn get_disk_size<D: AsRawFd>(dev: &D) -> u64 {
+pub fn get_disk_size<D: AsRawFd>(dev: &D) -> io::Result<u64> {
 	let mut size = 0;
 
 	let ret = unsafe {
 		ioctl(dev.as_raw_fd(), BLKGETSIZE64 as _, &mut size)
 	};
+	if ret < 0 {
+		return Err(Error::last_os_error());
+	}
 
-	size / 512
+	Ok(size / 512)
 }
 
 /// Makes the kernel read the partition table for the given device.
