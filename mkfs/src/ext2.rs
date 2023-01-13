@@ -105,6 +105,11 @@ pub struct Ext2Factory {
 }
 
 impl FSFactory for Ext2Factory {
+	fn is_present(&self, _dev: &mut File) -> io::Result<bool> {
+		// TODO
+		todo!();
+	}
+
 	fn create(&self, _dev: &mut File) -> io::Result<()> {
 		// TODO
 		todo!();

@@ -2,11 +2,13 @@
 
 mod ext2;
 
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
+use utils::prompt::prompt;
 
 /// Structure storing command line arguments.
 #[derive(Default)]
@@ -55,24 +57,24 @@ fn parse_args() -> Args {
 
 /// A trait representing an object used to create a filesystem on a device.
 pub trait FSFactory {
+	/// Tells whether a filesystem corresponding to the factory is present on the given device
+	/// `dev`.
+	fn is_present(&self, dev: &mut File) -> io::Result<bool>;
+
 	/// Creates the filesystem on the given device `dev`.
-	///
-	/// `dev` is the file of the device on which the filesystem will be created.
 	fn create(&self, dev: &mut File) -> io::Result<()>;
 }
 
 fn main() {
 	let args = parse_args();
 
-	let factory = match args.fs_type.as_str() {
-		"ext2" => ext2::Ext2Factory {},
-		// TODO
-
-		_ => {
-			eprintln!("{}: invalid filesystem type `{}`", args.prog, args.fs_type);
-			exit(1);
-		},
-	};
+	let factories = HashMap::<&str, Box<dyn FSFactory>>::from([
+		("ext2", Box::new(ext2::Ext2Factory {}) as Box<dyn FSFactory>),
+	]);
+	let factory = factories.get(args.fs_type.as_str()).unwrap_or_else(|| {
+		eprintln!("{}: invalid filesystem type `{}`", args.prog, args.fs_type);
+		exit(1);
+	});
 
 	let device_path = args.device_path.unwrap_or_else(|| {
 		eprintln!("{}: specify path to a device", args.prog);
@@ -84,7 +86,20 @@ fn main() {
 		exit(1);
 	});
 
-	// TODO detect filesystem on the device. If one is present, ask for confirmation
+	let prev_fs = factories.iter()
+		.filter(|(fs_type, factory)| factory.is_present(&mut file).unwrap()) // TODO handle error
+		.next();
+	if let Some((prev_fs_type, _prev_fs_factory)) = prev_fs {
+		println!("{} contains a {} file system", device_path.display(), prev_fs_type);
+		// TODO print details on fs (use factory)
+
+		let confirm = prompt(Some("Proceed anyway? (y/N) "), false)
+			.map(|s| s.to_lowercase() == "y")
+			.unwrap_or(false);
+		if !confirm {
+			exit(1);
+		}
+	}
 
 	if let Err(e) = factory.create(&mut file) {
 		eprintln!("{}: failed to create filesystem: {}", args.prog, e);

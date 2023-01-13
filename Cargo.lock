@@ -32,6 +32,9 @@ dependencies = [
 [[package]]
 name = "mkfs"
 version = "0.1.0"
+dependencies = [
+ "utils",
+]
 
 [[package]]
 name = "powerctl"
