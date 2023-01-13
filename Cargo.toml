@@ -3,6 +3,7 @@
 members = [
 	"fdisk",
 	"login",
+	"mkfs",
 	"powerctl",
 	"ps",
 	"su",
