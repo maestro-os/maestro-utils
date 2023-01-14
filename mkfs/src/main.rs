@@ -101,8 +101,8 @@ fn main() {
 		}
 	}
 
-	if let Err(e) = factory.create(&mut file) {
+	factory.create(&mut file).unwrap_or_else(|e| {
 		eprintln!("{}: failed to create filesystem: {}", args.prog, e);
 		exit(1);
-	}
+	});
 }

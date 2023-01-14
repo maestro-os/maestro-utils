@@ -4,6 +4,9 @@ use std::fs::File;
 use std::io;
 use crate::FSFactory;
 
+/// The filesystem's signature.
+const EXT2_SIGNATURE: u16 = 0xef53;
+
 /// The ext2 superblock structure.
 #[repr(C, packed)]
 struct Superblock {
