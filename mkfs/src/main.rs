@@ -82,12 +82,17 @@ fn main() {
 	});
 
 	let mut file = File::open(&device_path).unwrap_or_else(|e| {
-		eprintln!("{}: cannot open device `{}`: {}", args.prog, device_path.display(), e);
+		eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
 		exit(1);
 	});
 
 	let prev_fs = factories.iter()
-		.filter(|(fs_type, factory)| factory.is_present(&mut file).unwrap()) // TODO handle error
+		.filter(|(_, factory)| {
+			factory.is_present(&mut file).unwrap_or_else(|e| {
+				eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
+				exit(1);
+			})
+		})
 		.next();
 	if let Some((prev_fs_type, _prev_fs_factory)) = prev_fs {
 		println!("{} contains a {} file system", device_path.display(), prev_fs_type);

@@ -114,6 +114,54 @@ impl FSFactory for Ext2Factory {
 	}
 
 	fn create(&self, _dev: &mut File) -> io::Result<()> {
+		let _superblock = Superblock {
+			total_inodes: 0, // TODO
+			total_blocks: 0, // TODO
+			superuser_blocks: 0, // TODO
+			total_unallocated_blocks: 0, // TODO
+			total_unallocated_inodes: 0, // TODO
+			superblock_block_number: 0, // TODO
+			block_size_log: 0, // TODO
+			fragment_size_log: 0,
+			blocks_per_group: 0, // TODO
+			fragments_per_group: 0,
+			inodes_per_group: 0, // TODO
+			last_mount_timestamp: 0,
+			last_write_timestamp: 0,
+			mount_count_since_fsck: 0,
+			mount_count_before_fsck: 0, // TODO
+			signature: EXT2_SIGNATURE,
+			fs_state: 0, // TODO
+			error_action: 0, // TODO
+			minor_version: 0, // TODO
+			last_fsck_timestamp: 0, // TODO
+			fsck_interval: 0, // TODO
+			os_id: 0,
+			major_version: 0, // TODO
+			uid_reserved: 0,
+			gid_reserved: 0,
+
+			first_non_reserved_inode: 0, // TODO
+			inode_size: 0, // TODO
+			superblock_group: 0, // TODO
+			optional_features: 0, // TODO
+			required_features: 0, // TODO
+			write_required_features: 0, // TODO
+			filesystem_id: [0; 16], // TODO
+			volume_name: [0; 16], // TODO
+			last_mount_path: [0; 64],
+			compression_algorithms: 0, // TODO
+			files_preallocate_count: 0, // TODO
+			directories_preallocate_count: 0, // TODO
+			_unused: 0,
+			journal_id: [0; 16],
+			journal_inode: 0,
+			journal_device: 0,
+			orphan_inode_head: 0,
+
+			_padding: [0; 788],
+		};
+
 		// TODO
 		todo!();
 	}
