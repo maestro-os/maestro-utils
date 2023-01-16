@@ -1,5 +1,6 @@
 //! TODO doc
 
+use crate::partition::Partition;
 use libc::ioctl;
 use std::fmt;
 use std::fs::File;
@@ -9,7 +10,6 @@ use std::io;
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::path::PathBuf;
-use std::str;
 
 /// ioctl macro: TODO doc
 macro_rules! ioc {
@@ -30,171 +30,6 @@ macro_rules! ior {
 const BLKGETSIZE64: u64 = ior!(0x12, 114, usize);
 /// ioctl command: Read a partitions table.
 const BLKRRPART: u64 = 0x125f;
-
-/// Structure storing informations about a partition.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Partition {
-	/// The start offset in sectors.
-	pub start: u64,
-	/// The size of the partition in sectors.
-	pub size: u64,
-
-	/// The partition type.
-	pub part_type: String,
-
-	/// The partition's UUID.
-	pub uuid: Option<String>,
-
-	/// Tells whether the partition is bootable.
-	pub bootable: bool,
-}
-
-impl Partition {
-	/// Serializes a partitions list into a sfdisk script.
-	///
-	/// Arguments:
-	/// - `dev` is the path to the device file of the disk.
-	/// - `parts` is the list of partitions.
-	///
-	/// The function returns the resulting script.
-	pub fn serialize(dev: &str, parts: &[Self]) -> String {
-		let mut script = String::new();
-
-		// Writing header
-		// TODO label
-		// TODO label-id
-		script += format!("device: {}\n", dev).as_str();
-		script += "unit: sectors\n";
-		script += "\n";
-
-		// Writing partitions
-		for (i, p) in parts.iter().enumerate() {
-			script += &format!("{}{} : {}\n", dev, i, p);
-		}
-
-		script
-	}
-
-	/// Deserializes a partitions list from a given sfdisk script.
-	///
-	/// Arguments:
-	/// - `data` is script.
-	///
-	/// The function returns the list of partitions.
-	pub fn deserialize(data: &str) -> Vec<Self> {
-		// Skip header
-		let mut iter = data.split('\n');
-		while let Some(line) = iter.next() {
-			if line.trim().is_empty() {
-				break;
-			}
-		}
-
-		// Parse partitions
-		let mut parts = vec![];
-		for line in iter {
-			if line.trim().is_empty() {
-				continue;
-			}
-
-			let mut split = line.split(':').skip(1);
-			let Some(values) = split.next() else {
-				// TODO error
-				todo!();
-			};
-
-			// Filling partition structure
-			let mut part = Self::default();
-			for v in values.split(',') {
-				let mut split = v.split('=');
-				let Some(name) = split.next() else {
-					// TODO error
-					todo!();
-				};
-
-				let name = name.trim();
-				let value = split.next().map(|s| s.trim());
-
-				match name {
-					"start" => {
-						let Some(val) = value else {
-							// TODO error
-							todo!();
-						};
-						let Ok(val) = val.parse() else {
-							// TODO error
-							todo!();
-						};
-
-						part.start = val;
-					}
-
-					"size" => {
-						let Some(val) = value else {
-							// TODO error
-							todo!();
-						};
-						let Ok(val) = val.parse() else {
-							// TODO error
-							todo!();
-						};
-
-						part.size = val;
-					}
-
-					"type" => {
-						let Some(val) = value else {
-							// TODO error
-							todo!();
-						};
-
-						part.part_type = val.to_string();
-					}
-
-					"uuid" => {
-						let Some(val) = value else {
-							// TODO error
-							todo!();
-						};
-
-						part.uuid = Some(val.to_string());
-					}
-
-					"bootable" => part.bootable = true,
-
-					_ => {
-						// TODO error
-						todo!();
-					}
-				}
-			}
-
-			parts.push(part);
-		}
-
-		parts
-	}
-}
-
-impl fmt::Display for Partition {
-	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(
-			fmt,
-			"start={}, size={}, type={}",
-			self.start, self.size, self.part_type
-		)?;
-
-		if self.bootable {
-			write!(fmt, ", bootable")?;
-		}
-
-		if let Some(ref uuid) = self.uuid {
-			write!(fmt, ", uuid={}", uuid)?;
-		}
-
-		Ok(())
-	}
-}
 
 /// Structure representing a disk, containing partitions.
 pub struct Disk {

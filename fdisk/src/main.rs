@@ -4,8 +4,10 @@
 //! uses scripting instead of prompting.
 
 mod disk;
+mod partition;
 
 use disk::Disk;
+use partition::PartitionTableType;
 use std::env;
 use std::path::PathBuf;
 use std::process::exit;
@@ -85,6 +87,43 @@ fn print_help(prog: &str, script: bool) {
 	println!(" -l, --list\tLists partitions.");
 }
 
+/// Prints help for fdisk's internal commands.
+fn print_cmd_help() {
+	println!();
+	println!("Help:");
+	println!();
+	println!("  DOS (MBR)");
+	println!("   a  toggle a bootable flag");
+	println!("   c  toggle the dos compatibility flag");
+	println!();
+	println!("  Generic");
+	println!("   d  delete a partition");
+	println!("   F  list free unpartitioned space");
+	println!("   l  list known partition types");
+	println!("   n  add a new partition");
+	println!("   p  print the partition table");
+	println!("   t  change a partition type");
+	println!("   v  verify the partition table");
+	println!("   i  print information about a partition");
+	println!();
+	println!("  Misc");
+	println!("   m  print this menu");
+	println!();
+	println!("  Script");
+	println!("   I  load disk layout from sfdisk script file");
+	println!("   O  dump disk layout to sfdisk script file");
+	println!();
+	println!("  Save & Exit");
+	println!("   w  write table to disk and exit");
+	println!("   q  quit without saving changes");
+	println!();
+	println!("  Create a new label");
+	println!("   g  create a new empty GPT partition table");
+	println!("   o  create a new empty DOS partition table");
+	println!();
+}
+
+
 fn main() {
 	let args = parse_args();
 
@@ -123,10 +162,19 @@ fn main() {
 
 	if !args.script {
 		let mut disk = Disk::read(args.disks[0].clone());
+		let partition_table_type = PartitionTableType::MBR; // TODO get from disk
 
-		while let Some(_cmd) = prompt(Some("Command (m for help): "), false) {
-			// TODO execute commands
-			todo!();
+		while let Some(cmd) = prompt(Some("Command (m for help): "), false) {
+			match cmd.as_str() {
+				"l" => partition_table_type.print_partition_types(),
+				"m" => print_cmd_help(),
+
+				// TODO
+
+				_ => eprintln!("{}: unknown command", cmd),
+			}
+
+			println!();
 		}
 		// TODO on exit without save, ask for confirm
 
