@@ -10,8 +10,11 @@ use crate::partition::Partition;
 use disk::Disk;
 use partition::PartitionTableType;
 use std::env;
-use std::fs::File;
+use std::fs::OpenOptions;
+use std::fs;
 use std::io::Write;
+use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 use utils::prompt::prompt;
@@ -126,6 +129,28 @@ fn print_cmd_help() {
 	println!();
 }
 
+/// Imports the script in the file at the given path and applies it to the given disk.
+fn import_script(disk: &mut Disk, path: &Path) -> io::Result<()> {
+	let script = fs::read_to_string(path)?;
+	disk.partitions = Partition::deserialize(&script);
+
+	Ok(())
+}
+
+/// Exports the given disk as a script to the file at the given path.
+fn export_script(disk: &Disk, path: &Path) -> io::Result<()> {
+	let mut script_file = OpenOptions::new()
+		.create(true)
+		.write(true)
+		.truncate(true)
+		.open(path)?;
+	let serialized = Partition::serialize(path, &disk.partitions);
+	println!("-> {}", serialized);
+	script_file.write(serialized.as_bytes())?;
+	script_file.flush()?;
+
+	Ok(())
+}
 
 fn main() {
 	let args = parse_args();
@@ -163,8 +188,10 @@ fn main() {
 		return;
 	}
 
+	let disk_path = &args.disks[0];
+
 	if !args.script {
-		let mut disk = Disk::read(args.disks[0].clone())
+		let mut disk = Disk::read(disk_path.clone())
 			.unwrap() // TODO handle error
 			.unwrap(); // TODO handle error
 		let partition_table_type = PartitionTableType::MBR; // TODO get from disk
@@ -193,22 +220,33 @@ fn main() {
 
 				"m" => print_cmd_help(),
 
-				"I" => if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
-					// TODO
-					todo!();
-				},
+				"I" => {
+					if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+						let script_path = PathBuf::from(script_path);
 
-				"O" => if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
-					// TODO open the file as writable
-					// TODO handle error
-					let mut script_file = File::open(script_path).unwrap();
+						match import_script(&mut disk, &script_path) {
+							Ok(_) => println!("\nScript successfully applied.\n"),
 
-					let serialized = Partition::serialize(&args.disks[0], &disk.partitions);
-					// TODO handle error
-					script_file.write(serialized.as_bytes()).unwrap();
+							Err(e) => eprintln!(
+								"cannot import script {}: {}", script_path.display(), e
+							),
+						}
+					}
+				}
 
-					println!("\nScript successfully saved.\n");
-				},
+				"O" => {
+					if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+						let script_path = PathBuf::from(script_path);
+
+						match export_script(&disk, &script_path) {
+							Ok(_) => println!("\nScript successfully saved.\n"),
+
+							Err(e) => eprintln!(
+								"cannot export script {}: {}", script_path.display(), e
+							),
+						}
+					}
+				}
 
 				"w" => todo!(), // TODO
 

@@ -8,6 +8,7 @@ use std::fs;
 use std::io::Error;
 use std::io;
 use std::os::fd::AsRawFd;
+use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -44,6 +45,8 @@ pub struct Disk {
 
 impl Disk {
 	/// Tells whether the device file at the given path is a valid disk.
+	///
+	/// This function is meant to be used when listing disks.
 	fn is_valid(path: &Path) -> bool {
 		let Some(path_str) = path.as_os_str().to_str() else {
 			return false;
@@ -65,14 +68,8 @@ impl Disk {
 	///
 	/// If the path doesn't point to a valid device, the function returns None.
 	pub fn read(dev_path: PathBuf) -> io::Result<Option<Self>> {
-		// Filter devices
-		if !Self::is_valid(&dev_path) {
-			return Ok(None);
-		}
-
 		// Getting the number of sectors on the disk
-		let file = File::open(&dev_path)?;
-		let Ok(size) = get_disk_size(&file) else {
+		let Ok(size) = get_disk_size(&dev_path) else {
 			return Ok(None);
 		};
 
@@ -99,6 +96,12 @@ impl Disk {
 
 		for dev in fs::read_dir("/dev")? {
 			let dev_path = dev?.path();
+
+			// Filter devices
+			if !Self::is_valid(&dev_path) {
+				continue;
+			}
+
 			let Some(dev) = Self::read(dev_path)? else {
 				continue;
 			};
@@ -141,17 +144,28 @@ impl fmt::Display for Disk {
 }
 
 /// Returns the number of sectors on the given device.
-pub fn get_disk_size<D: AsRawFd>(dev: &D) -> io::Result<u64> {
+pub fn get_disk_size(path: &Path) -> io::Result<u64> {
 	let mut size = 0;
 
-	let ret = unsafe {
-		ioctl(dev.as_raw_fd(), BLKGETSIZE64 as _, &mut size)
-	};
-	if ret < 0 {
-		return Err(Error::last_os_error());
-	}
+	let metadata = fs::metadata(path)?;
+	let file_type = metadata.file_type();
 
-	Ok(size / 512)
+	if file_type.is_block_device() || file_type.is_char_device() {
+		let dev = File::open(path)?;
+
+		let ret = unsafe {
+			ioctl(dev.as_raw_fd(), BLKGETSIZE64 as _, &mut size)
+		};
+		if ret < 0 {
+			return Err(Error::last_os_error());
+		}
+
+		Ok(size / 512)
+	} else if file_type.is_file() {
+		Ok(metadata.len() / 512)
+	} else {
+		Ok(0)
+	}
 }
 
 /// Makes the kernel read the partition table for the given device.
