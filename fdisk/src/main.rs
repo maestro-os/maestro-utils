@@ -248,9 +248,37 @@ fn main() {
 					}
 				}
 
-				"w" => todo!(), // TODO
+				"w" => {
+					// TODO ask only if modifications have been made
+					let prompt_str = format!("Write changes to `{}`? (y/n) ", disk_path.display());
+					let confirm = prompt(Some(&prompt_str), false)
+						.map(|s| s == "y")
+						.unwrap_or(false);
+					if confirm {
+						continue;
+					}
 
-				"q" => todo!(), // TODO
+					match disk.write() {
+						Ok(_) => exit(0),
+
+						Err(e) => {
+							eprintln!("cannot write to disk `{}`: {}", disk_path.display(), e);
+							exit(1);
+						}
+					}
+				},
+
+				"q" => {
+					// TODO ask only if mdoifications have been made
+					let confirm = prompt(Some("Exit without saving? (y/n) "), false)
+						.map(|s| s == "y")
+						.unwrap_or(false);
+					if confirm {
+						continue;
+					}
+
+					exit(0);
+				},
 
 				"g" => todo!(), // TODO
 
@@ -261,9 +289,8 @@ fn main() {
 
 			println!();
 		}
-		// TODO on exit without save, ask for confirm
 
-		// TODO else on save, write table after confirm
+		// TODO on modifications, ask for confirm before exiting
 	} else {
 		// TODO Read and parse script
 		// TODO Write partition table accordingly
