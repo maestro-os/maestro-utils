@@ -6,9 +6,12 @@
 mod disk;
 mod partition;
 
+use crate::partition::Partition;
 use disk::Disk;
 use partition::PartitionTableType;
 use std::env;
+use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::exit;
 use utils::prompt::prompt;
@@ -161,15 +164,59 @@ fn main() {
 	}
 
 	if !args.script {
-		let mut disk = Disk::read(args.disks[0].clone());
+		let mut disk = Disk::read(args.disks[0].clone())
+			.unwrap() // TODO handle error
+			.unwrap(); // TODO handle error
 		let partition_table_type = PartitionTableType::MBR; // TODO get from disk
 
 		while let Some(cmd) = prompt(Some("Command (m for help): "), false) {
 			match cmd.as_str() {
+				"a" => todo!(), // TODO
+
+				"c" => todo!(), // TODO
+
+				"d" => todo!(), // TODO
+
+				"F" => todo!(), // TODO
+
 				"l" => partition_table_type.print_partition_types(),
+
+				"n" => todo!(), // TODO
+
+				"p" => todo!(), // TODO
+
+				"t" => todo!(), // TODO
+
+				"v" => todo!(), // TODO
+
+				"i" => todo!(), // TODO
+
 				"m" => print_cmd_help(),
 
-				// TODO
+				"I" => if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+					// TODO
+					todo!();
+				},
+
+				"O" => if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+					// TODO open the file as writable
+					// TODO handle error
+					let mut script_file = File::open(script_path).unwrap();
+
+					let serialized = Partition::serialize(&args.disks[0], &disk.partitions);
+					// TODO handle error
+					script_file.write(serialized.as_bytes()).unwrap();
+
+					println!("\nScript successfully saved.\n");
+				},
+
+				"w" => todo!(), // TODO
+
+				"q" => todo!(), // TODO
+
+				"g" => todo!(), // TODO
+
+				"o" => todo!(), // TODO
 
 				_ => eprintln!("{}: unknown command", cmd),
 			}

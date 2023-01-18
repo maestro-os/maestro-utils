@@ -3,6 +3,7 @@
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::path::Path;
 
 /// Enumeration of partition table types.
 pub enum PartitionTableType {
@@ -171,19 +172,19 @@ impl Partition {
 	/// - `parts` is the list of partitions.
 	///
 	/// The function returns the resulting script.
-	pub fn serialize(dev: &str, parts: &[Self]) -> String {
+	pub fn serialize(dev: &Path, parts: &[Self]) -> String {
 		let mut script = String::new();
 
 		// Writing header
 		// TODO label
 		// TODO label-id
-		script += format!("device: {}\n", dev).as_str();
+		script += format!("device: {}\n", dev.display()).as_str();
 		script += "unit: sectors\n";
 		script += "\n";
 
 		// Writing partitions
 		for (i, p) in parts.iter().enumerate() {
-			script += &format!("{}{} : {}\n", dev, i, p);
+			script += &format!("{}{} : {}\n", dev.display(), i, p);
 		}
 
 		script
@@ -192,7 +193,7 @@ impl Partition {
 	/// Deserializes a partitions list from a given sfdisk script.
 	///
 	/// Arguments:
-	/// - `data` is script.
+	/// - `data` is the script.
 	///
 	/// The function returns the list of partitions.
 	pub fn deserialize(data: &str) -> Vec<Self> {
