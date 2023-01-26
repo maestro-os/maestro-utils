@@ -208,7 +208,10 @@ fn main() {
 
 				"l" => partition_table_type.print_partition_types(),
 
-				"n" => todo!(), // TODO
+				"n" => {
+					let _new_partition = partition_table_type.prompt_new_partition();
+					// TODO insert new partition to disk
+				},
 
 				"p" => todo!(), // TODO
 

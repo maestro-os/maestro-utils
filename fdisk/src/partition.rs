@@ -4,6 +4,7 @@ use std::cmp::max;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
+use utils::prompt::prompt;
 
 /// Enumeration of partition table types.
 pub enum PartitionTableType {
@@ -143,6 +144,56 @@ impl PartitionTableType {
 				todo!();
 			}
 		}
+	}
+
+	// TODO Return result instead
+	/// Prompts for informations related to a new partition to be created.
+	pub fn prompt_new_partition(&self) -> Partition {
+		let (_extended, max_partition_count) = match self {
+			Self::MBR => {
+				// TODO get info from disk, to be passed as argument
+				println!("Partition type");
+				println!("   p   primary (TODO primary, TODO extended, TODO free)");
+				println!("   e   extended (container for logical partitions)");
+
+				let extended = prompt(Some("Select (default p): "), false)
+					.map(|s| s == "e") // TODO handle invalid prompt (other than `p` and `e`)
+					.unwrap_or(false);
+
+				(extended, 4)
+			}
+
+			Self::GPT => (false, 128),
+		};
+
+		// Ask partition number
+		let first = 1; // TODO get from disk
+		let prompt_str = format!(
+			"Partition number ({}-{}, default {}): ", first, max_partition_count, first
+		);
+		let partition_number = prompt(Some(&prompt_str), false)
+			.map(|s| s.parse::<usize>())
+			.transpose()
+			.unwrap() // TODO handle error
+			.unwrap_or(first);
+
+		// Ask first sector
+		let first_sector = 2048; // TODO
+		let last_sector = 0; // TODO
+		let prompt_str = format!(
+			"First sector ({}-{}, default {})", first_sector, last_sector, first_sector
+		);
+		let partition_number = prompt(Some(&prompt_str), false)
+			.map(|s| s.parse::<usize>())
+			.transpose()
+			.unwrap() // TODO handle error
+			.unwrap_or(first_sector);
+
+		// Ask last sector
+		// TODO
+
+		// TODO
+		todo!();
 	}
 }
 
