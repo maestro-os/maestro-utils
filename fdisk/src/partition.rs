@@ -178,22 +178,44 @@ impl PartitionTableType {
 			.unwrap_or(first);
 
 		// Ask first sector
-		let first_sector = 2048; // TODO
-		let last_sector = 0; // TODO
+		let first_available = 2048; // TODO
+		let last_available = 0; // TODO
 		let prompt_str = format!(
-			"First sector ({}-{}, default {})", first_sector, last_sector, first_sector
+			"First sector ({}-{}, default {})", first_available, last_available, first_available
 		);
-		let partition_number = prompt(Some(&prompt_str), false)
-			.map(|s| s.parse::<usize>())
+		let start = prompt(Some(&prompt_str), false)
+			.map(|s| s.parse::<u64>())
 			.transpose()
 			.unwrap() // TODO handle error
-			.unwrap_or(first_sector);
+			.unwrap_or(first_available);
 
 		// Ask last sector
-		// TODO
+		let prompt_str = format!(
+			"Last sector, +/-sectors or +/-size{{K,M,G,T,P}} ({}-{}, default {})",
+			start, last_available, last_available
+		);
+		let end = prompt(Some(&prompt_str), false)
+			.map(|s| {
+				// TODO parse suffix
+				s.parse::<u64>()
+			})
+			.transpose()
+			.unwrap() // TODO handle error
+			.unwrap_or(last_available);
 
-		// TODO
-		todo!();
+		let sector_size = 512; // TODO get from disk?
+		let size = (end - start) / sector_size as u64;
+
+		Partition {
+			start,
+			size,
+
+			part_type: "TODO".to_string(), // TODO
+
+			uuid: None, // TODO
+
+			bootable: false,
+		}
 	}
 }
 
