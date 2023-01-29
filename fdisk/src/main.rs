@@ -6,7 +6,7 @@
 mod disk;
 mod partition;
 
-use crate::partition::Partition;
+use crate::partition::PartitionTable;
 use disk::Disk;
 use std::env;
 use std::fs::OpenOptions;
@@ -130,7 +130,7 @@ fn print_cmd_help() {
 /// Imports the script in the file at the given path and applies it to the given disk.
 fn import_script(disk: &mut Disk, path: &Path) -> io::Result<()> {
 	let script = fs::read_to_string(path)?;
-	disk.partition_table.partitions = Partition::deserialize(&script);
+	disk.partition_table = PartitionTable::deserialize(&script);
 
 	Ok(())
 }
@@ -142,7 +142,7 @@ fn export_script(disk: &Disk, path: &Path) -> io::Result<()> {
 		.write(true)
 		.truncate(true)
 		.open(path)?;
-	let serialized = Partition::serialize(path, &disk.partition_table.partitions);
+	let serialized = disk.partition_table.serialize(path);
 	script_file.write(serialized.as_bytes())?;
 	script_file.flush()?;
 

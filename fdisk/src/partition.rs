@@ -238,16 +238,53 @@ pub struct Partition {
 	pub bootable: bool,
 }
 
-// TODO move `serialize` and `deserialize` to PartitionTable in order to serialize the table type
-impl Partition {
+impl fmt::Display for Partition {
+	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(
+			fmt,
+			"start={}, size={}, type={}",
+			self.start, self.size, self.part_type
+		)?;
+
+		if self.bootable {
+			write!(fmt, ", bootable")?;
+		}
+
+		if let Some(ref uuid) = self.uuid {
+			write!(fmt, ", uuid={}", uuid)?;
+		}
+
+		Ok(())
+	}
+}
+
+/// Structure representing a partition table.
+pub struct PartitionTable {
+	/// The type of the partition table.
+	pub table_type: PartitionTableType,
+	/// The list of partitions in the table.
+	pub partitions: Vec<Partition>,
+}
+
+impl PartitionTable {
+	/// TODO doc
+	pub fn read(path: &Path) -> io::Result<Self> {
+		// TODO
+		todo!();
+	}
+
+	/// TODO doc
+	pub fn write(&self, path: &Path) -> io::Result<()> {
+		// TODO
+		todo!();
+	}
+
 	/// Serializes a partitions list into a sfdisk script.
 	///
-	/// Arguments:
-	/// - `dev` is the path to the device file of the disk.
-	/// - `parts` is the list of partitions.
+	/// `dev` is the path to the device file of the disk.
 	///
 	/// The function returns the resulting script.
-	pub fn serialize(dev: &Path, parts: &[Self]) -> String {
+	pub fn serialize(&self, dev: &Path) -> String {
 		let mut script = String::new();
 
 		// Writing header
@@ -258,7 +295,7 @@ impl Partition {
 		script += "\n";
 
 		// Writing partitions
-		for (i, p) in parts.iter().enumerate() {
+		for (i, p) in self.partitions.iter().enumerate() {
 			script += &format!("{}{} : {}\n", dev.display(), i, p);
 		}
 
@@ -267,13 +304,10 @@ impl Partition {
 
 	/// Deserializes a partitions list from a given sfdisk script.
 	///
-	/// Arguments:
-	/// - `data` is the script.
-	///
 	/// The function returns the list of partitions.
-	pub fn deserialize(data: &str) -> Vec<Self> {
+	pub fn deserialize(script: &str) -> Self {
 		// Skip header
-		let mut iter = data.split('\n');
+		let mut iter = script.split('\n');
 		while let Some(line) = iter.next() {
 			if line.trim().is_empty() {
 				break;
@@ -281,7 +315,7 @@ impl Partition {
 		}
 
 		// Parse partitions
-		let mut parts = vec![];
+		let mut partitions = vec![];
 		for line in iter {
 			if line.trim().is_empty() {
 				continue;
@@ -294,7 +328,7 @@ impl Partition {
 			};
 
 			// Filling partition structure
-			let mut part = Self::default();
+			let mut part = Partition::default();
 			for v in values.split(',') {
 				let mut split = v.split('=');
 				let Some(name) = split.next() else {
@@ -359,51 +393,12 @@ impl Partition {
 				}
 			}
 
-			parts.push(part);
+			partitions.push(part);
 		}
 
-		parts
-	}
-}
-
-impl fmt::Display for Partition {
-	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(
-			fmt,
-			"start={}, size={}, type={}",
-			self.start, self.size, self.part_type
-		)?;
-
-		if self.bootable {
-			write!(fmt, ", bootable")?;
+		Self {
+			table_type: PartitionTableType::MBR, // TODO
+			partitions,
 		}
-
-		if let Some(ref uuid) = self.uuid {
-			write!(fmt, ", uuid={}", uuid)?;
-		}
-
-		Ok(())
-	}
-}
-
-/// Structure representing a partition table.
-pub struct PartitionTable {
-	/// The type of the partition table.
-	pub table_type: PartitionTableType,
-	/// The list of partitions in the table.
-	pub partitions: Vec<Partition>,
-}
-
-impl PartitionTable {
-	/// TODO doc
-	pub fn read(path: &Path) -> io::Result<Self> {
-		// TODO
-		todo!();
-	}
-
-	/// TODO doc
-	pub fn write(&self, path: &Path) -> io::Result<()> {
-		// TODO
-		todo!();
 	}
 }
