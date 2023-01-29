@@ -23,6 +23,13 @@ extern "C" {
     fn syscall(number: c_long, ...);
 }
 
+/// Power off the system.
+pub fn poweroff() {
+    unsafe {
+        syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_POWEROFF);
+    }
+}
+
 /// Reboots the system.
 pub fn reboot() {
     unsafe {
@@ -34,5 +41,12 @@ pub fn reboot() {
 pub fn halt() {
     unsafe {
         syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_HALT);
+    }
+}
+
+/// Suspends the system.
+pub fn suspend() {
+    unsafe {
+        syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_SUSPEND);
     }
 }
