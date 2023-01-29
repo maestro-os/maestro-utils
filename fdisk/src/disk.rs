@@ -1,7 +1,6 @@
 //! TODO doc
 
-use crate::partition::Partition;
-use crate::partition::PartitionTableType;
+use crate::partition::PartitionTable;
 use libc::ioctl;
 use std::fmt;
 use std::fs::File;
@@ -12,6 +11,7 @@ use std::os::fd::AsRawFd;
 use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::path::PathBuf;
+use utils::util::ByteSize;
 
 /// ioctl macro: TODO doc
 macro_rules! ioc {
@@ -40,8 +40,8 @@ pub struct Disk {
 	/// The size of the disk in number of sectors.
 	size: u64,
 
-	/// The disk's partitions.
-	pub partitions: Vec<Partition>,
+	/// The partition table.
+	pub partition_table: PartitionTable,
 }
 
 impl Disk {
@@ -69,26 +69,23 @@ impl Disk {
 	///
 	/// If the path doesn't point to a valid device, the function returns None.
 	pub fn read(dev_path: PathBuf) -> io::Result<Option<Self>> {
-		// Getting the number of sectors on the disk
 		let Ok(size) = get_disk_size(&dev_path) else {
 			return Ok(None);
 		};
 
-		// TODO read partitions table from disk
-		let partitions = Vec::new();
+		let partition_table = PartitionTable::read(&dev_path)?;
 
 		Ok(Some(Self {
 			dev_path,
 			size,
 
-			partitions,
+			partition_table,
 		}))
 	}
 
 	/// Writes the partition table to the disk.
 	pub fn write(&self) -> io::Result<()> {
-		// TODO
-		todo!();
+		self.partition_table.write(&self.dev_path)
 	}
 
 	/// Lists disks present on the system.
@@ -122,29 +119,45 @@ impl Disk {
 	pub fn get_size(&self) -> u64 {
 		self.size
 	}
-
-	/// Returns the type of the partition table on the disk.
-	pub fn get_partition_table_type(&self) -> PartitionTableType {
-		// TODO
-		PartitionTableType::MBR
-	}
 }
 
 impl fmt::Display for Disk {
 	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-		// TODO
-		write!(fmt, "Disk TODO: TODO MiB, TODO bytes, TODO sectors")?;
-		write!(fmt, "Disk model: TODO")?;
-		write!(fmt, "Units: sectors of TODO * TODO = TODO bytes")?;
-		write!(fmt, "Sector size (logical/physical): TODO bytes / TODO bytes")?;
-		write!(fmt, "I/O size (minimum/optimal): TODO bytes / TODO bytes")?;
-		write!(fmt, "Disklabel type: TODO")?;
-		write!(fmt, "Disk identifier: TODO")?;
+		let sector_size = 512; // TODO check if this value can be different
 
-		// TODO If disk has partitions:
-		write!(fmt, "\nDevice\tStart\tEnd\tSectors\tSize\tType")?;
-		// TODO loop:
-		write!(fmt, "/dev/TODO\tTODO\tTODO\tTODO\tTODO\tTODO")?;
+		let byte_size = self.size * sector_size;
+
+		write!(
+			fmt,
+			"Disk {}: {}, {} bytes, {} sectors\n",
+			self.dev_path.display(), ByteSize(byte_size), byte_size, self.size
+		)?;
+		write!(fmt, "Disk model: TODO\n")?;
+		write!(fmt, "Units: sectors of 1 * {} = {} bytes\n", sector_size, sector_size)?;
+		write!(
+			fmt,
+			"Sector size (logical/physical): {} bytes / {} bytes\n",
+			sector_size, sector_size
+		)?;
+		write!(
+			fmt,
+			"I/O size (minimum/optimal): {} bytes / {} bytes\n",
+			sector_size, sector_size
+		)?;
+		write!(fmt, "Disklabel type: TODO\n")?;
+		write!(fmt, "Disk identifier: TODO\n")?;
+
+		if !self.partition_table.partitions.is_empty() {
+			write!(fmt, "\nDevice\tStart\tEnd\tSectors\tSize\tType\n")?;
+		}
+
+		for p in &self.partition_table.partitions {
+			write!(
+				fmt,
+				"/dev/TODO\t{}\t{}\t{}\t{}\tTODO\n",
+				p.start, p.start + p.size, p.size, ByteSize(p.size)
+			)?;
+		}
 
 		Ok(())
 	}

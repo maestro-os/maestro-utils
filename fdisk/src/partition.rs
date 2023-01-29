@@ -3,6 +3,7 @@
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::io;
 use std::path::Path;
 use utils::prompt::prompt;
 
@@ -237,6 +238,7 @@ pub struct Partition {
 	pub bootable: bool,
 }
 
+// TODO move `serialize` and `deserialize` to PartitionTable in order to serialize the table type
 impl Partition {
 	/// Serializes a partitions list into a sfdisk script.
 	///
@@ -381,5 +383,27 @@ impl fmt::Display for Partition {
 		}
 
 		Ok(())
+	}
+}
+
+/// Structure representing a partition table.
+pub struct PartitionTable {
+	/// The type of the partition table.
+	pub table_type: PartitionTableType,
+	/// The list of partitions in the table.
+	pub partitions: Vec<Partition>,
+}
+
+impl PartitionTable {
+	/// TODO doc
+	pub fn read(path: &Path) -> io::Result<Self> {
+		// TODO
+		todo!();
+	}
+
+	/// TODO doc
+	pub fn write(&self, path: &Path) -> io::Result<()> {
+		// TODO
+		todo!();
 	}
 }

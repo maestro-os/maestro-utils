@@ -56,7 +56,7 @@ pub fn log2(n: u64) -> Option<u64> {
 }
 
 /// Structure representing a number of bytes.
-pub struct ByteSize(u64);
+pub struct ByteSize(pub u64);
 
 impl ByteSize {
 	/// Creates a size from a given number of sectors.

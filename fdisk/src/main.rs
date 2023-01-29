@@ -130,7 +130,7 @@ fn print_cmd_help() {
 /// Imports the script in the file at the given path and applies it to the given disk.
 fn import_script(disk: &mut Disk, path: &Path) -> io::Result<()> {
 	let script = fs::read_to_string(path)?;
-	disk.partitions = Partition::deserialize(&script);
+	disk.partition_table.partitions = Partition::deserialize(&script);
 
 	Ok(())
 }
@@ -142,8 +142,7 @@ fn export_script(disk: &Disk, path: &Path) -> io::Result<()> {
 		.write(true)
 		.truncate(true)
 		.open(path)?;
-	let serialized = Partition::serialize(path, &disk.partitions);
-	println!("-> {}", serialized);
+	let serialized = Partition::serialize(path, &disk.partition_table.partitions);
 	script_file.write(serialized.as_bytes())?;
 	script_file.flush()?;
 
@@ -169,10 +168,10 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
 
 		"F" => todo!(), // TODO
 
-		"l" => disk.get_partition_table_type().print_partition_types(),
+		"l" => disk.partition_table.table_type.print_partition_types(),
 
 		"n" => {
-			let _new_partition = disk.get_partition_table_type().prompt_new_partition();
+			let _new_partition = disk.partition_table.table_type.prompt_new_partition();
 			// TODO insert new partition to disk
 		}
 
@@ -290,9 +289,7 @@ fn main() {
 	}
 
 	if args.list {
-		let disks_count = args.disks.len();
-
-		let iter = if disks_count > 0 {
+		let iter = if !args.disks.is_empty() {
 			args.disks.into_iter()
 		} else {
 			match Disk::list() {
@@ -305,9 +302,9 @@ fn main() {
 			}
 		};
 
-		for (i, path) in iter.enumerate() {
+		for path in iter {
 			match Disk::read(path.clone()) {
-				Ok(Some(disk)) => println!("{}\n", disk),
+				Ok(Some(disk)) => print!("{}", disk),
 
 				Ok(None) => {
 					eprintln!("{}: cannot open {}: Invalid argument", args.prog, path.display());
@@ -316,10 +313,6 @@ fn main() {
 				Err(e) => {
 					eprintln!("{}: cannot open {}: {}", args.prog, path.display(), e);
 				}
-			}
-
-			if i + 1 < disks_count {
-				println!("\n");
 			}
 		}
 
