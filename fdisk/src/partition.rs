@@ -7,11 +7,104 @@ use std::io;
 use std::path::Path;
 use utils::prompt::prompt;
 
+/// The signature of the MBR partition table.
+const MBR_SIGNATURE: u16 = 0x55aa;
+
+/// The signature in the GPT header.
+const GPT_SIGNATURE: &[u8] = b"EFI PART";
+/// The polynom used in the computation of the CRC32 checksum.
+const GPT_CHECKSUM_POLYNOM: u32 = 0x4c11db7;
+
+/// Type representing a Globally Unique IDentifier.
+type GUID = [u8; 16];
+
+/// Structure representing a MBR partition.
+#[repr(C, packed)]
+struct MBRPartition {
+	/// Partition attributes.
+	attrs: u8,
+	/// CHS address of partition start.
+	chs_start: [u8; 3],
+	/// The type of the partition.
+	parition_type: u8,
+	/// CHS address of partition end.
+	chs_end: [u8; 3],
+	/// LBA address of partition start.
+	lba_start: u32,
+	/// The number of sectors in the partition.
+	sectors_count: u32,
+}
+
+/// Structure representing a MBR partition table.
+#[repr(C, packed)]
+pub struct MBRTable {
+	/// The boot code.
+	boot: [u8; 440],
+	/// The disk signature (optional).
+	disk_signature: u32,
+	/// Zero.
+	zero: u16,
+	/// The list of partitions.
+	partitions: [MBRPartition; 4],
+	/// The partition table signature.
+	signature: u16,
+}
+
+/// Structure representing a GPT entry.
+#[repr(C, packed)]
+struct GPTEntry {
+	/// The partition type's GUID.
+	partition_type: GUID,
+	/// The partition's GUID.
+	guid: GUID,
+	/// The starting LBA.
+	start: i64,
+	/// The ending LBA.
+	end: i64,
+	/// Entry's attributes.
+	attributes: u64,
+	/// The partition's name.
+	name: [u16],
+}
+
+/// Structure representing the GPT header.
+#[repr(C, packed)]
+pub struct GPT {
+	/// The header's signature.
+	signature: [u8; 8],
+	/// The header's revision.
+	revision: u32,
+	/// The size of the header in bytes.
+	hdr_size: u32,
+	/// The header's checksum.
+	checksum: u32,
+	/// Reserved field.
+	reserved: u32,
+	/// The LBA of the sector containing this header.
+	hdr_lba: i64,
+	/// The LBA of the sector containing the alternate header.
+	alternate_hdr_lba: i64,
+	/// The first usable sector.
+	first_usable: u64,
+	/// The last usable sector.
+	last_usable: u64,
+	/// The disk's GUID.
+	disk_guid: GUID,
+	/// The LBA of the beginning of the GUID partition entries array.
+	entries_start: i64,
+	/// The number of entries in the table.
+	entries_number: u32,
+	/// The size in bytes of each entry in the array.
+	entry_size: u32,
+	/// Checksum of the entries array.
+	entries_checksum: u32,
+}
+
 /// Enumeration of partition table types.
 pub enum PartitionTableType {
 	/// Master Boot Record.
 	MBR,
-	/// TODO
+	/// Globally Unique Identifier Partition Table.
 	GPT,
 }
 
@@ -216,6 +309,15 @@ impl PartitionTableType {
 			uuid: None, // TODO
 
 			bootable: false,
+		}
+	}
+}
+
+impl fmt::Display for PartitionTableType {
+	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::MBR => write!(fmt, "dos"),
+			Self::GPT => write!(fmt, "gpt"),
 		}
 	}
 }

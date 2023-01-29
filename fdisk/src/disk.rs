@@ -144,7 +144,7 @@ impl fmt::Display for Disk {
 			"I/O size (minimum/optimal): {} bytes / {} bytes\n",
 			sector_size, sector_size
 		)?;
-		write!(fmt, "Disklabel type: TODO\n")?;
+		write!(fmt, "Disklabel type: {}\n", self.partition_table.table_type)?;
 		write!(fmt, "Disk identifier: TODO\n")?;
 
 		if !self.partition_table.partitions.is_empty() {
