@@ -369,13 +369,15 @@ pub struct PartitionTable {
 }
 
 impl PartitionTable {
-	/// TODO doc
+	/// Reads the partition table from the disk device at the given path.
+	///
+	/// If the table is invalid, the function returns an empty MBR table.
 	pub fn read(path: &Path) -> io::Result<Self> {
 		// TODO
 		todo!();
 	}
 
-	/// TODO doc
+	/// Writes the partition table to the disk device at the given path.
 	pub fn write(&self, path: &Path) -> io::Result<()> {
 		// TODO
 		todo!();
