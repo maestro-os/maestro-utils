@@ -1,6 +1,7 @@
 //! TODO doc
 
 use crate::partition::Partition;
+use crate::partition::PartitionTableType;
 use libc::ioctl;
 use std::fmt;
 use std::fs::File;
@@ -91,35 +92,41 @@ impl Disk {
 	}
 
 	/// Lists disks present on the system.
-	pub fn list() -> io::Result<Vec<Self>> {
-		let mut disks = vec![];
+	pub fn list() -> io::Result<Vec<PathBuf>> {
+		fs::read_dir("/dev")?
+			.filter_map(|dev| {
+				match dev {
+					Ok(dev) => {
+						let dev_path = dev.path();
 
-		for dev in fs::read_dir("/dev")? {
-			let dev_path = dev?.path();
+						if Self::is_valid(&dev_path) {
+							Some(Ok(dev_path))
+						} else {
+							None
+						}
+					},
 
-			// Filter devices
-			if !Self::is_valid(&dev_path) {
-				continue;
-			}
+					Err(e) => Some(Err(e)),
+				}
 
-			let Some(dev) = Self::read(dev_path)? else {
-				continue;
-			};
-
-			disks.push(dev);
-		}
-
-		Ok(disks)
+			})
+			.collect()
 	}
 
 	/// Returns the path to the device file of the disk.
-	pub fn get_dev_path(&self) -> &Path {
+	pub fn get_path(&self) -> &Path {
 		&self.dev_path
 	}
 
 	/// Returns the size of the disk in number of sectors.
 	pub fn get_size(&self) -> u64 {
 		self.size
+	}
+
+	/// Returns the type of the partition table on the disk.
+	pub fn get_partition_table_type(&self) -> PartitionTableType {
+		// TODO
+		PartitionTableType::MBR
 	}
 }
 
@@ -169,7 +176,9 @@ pub fn get_disk_size(path: &Path) -> io::Result<u64> {
 }
 
 /// Makes the kernel read the partition table for the given device.
-pub fn read_partitions<D: AsRawFd>(dev: &D) -> io::Result<()> {
+pub fn read_partitions(path: &Path) -> io::Result<()> {
+	let dev = File::open(path)?;
+
 	let ret = unsafe {
 		ioctl(dev.as_raw_fd(), BLKRRPART, 0)
 	};

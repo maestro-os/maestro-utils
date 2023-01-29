@@ -8,7 +8,6 @@ mod partition;
 
 use crate::partition::Partition;
 use disk::Disk;
-use partition::PartitionTableType;
 use std::env;
 use std::fs::OpenOptions;
 use std::fs;
@@ -100,7 +99,6 @@ fn print_cmd_help() {
 	println!();
 	println!("  DOS (MBR)");
 	println!("   a  toggle a bootable flag");
-	println!("   c  toggle the dos compatibility flag");
 	println!();
 	println!("  Generic");
 	println!("   d  delete a partition");
@@ -152,6 +150,133 @@ fn export_script(disk: &Disk, path: &Path) -> io::Result<()> {
 	Ok(())
 }
 
+/// TODO doc
+///
+/// If modifications have been made, the function returns `true`.
+fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
+	match cmd {
+		"a" => {
+			// TODO check whether partition table type supports boot flag. If not, error
+			// TODO select partition and toggle boot flag
+		}
+
+		"d" => {
+			// TODO:
+			// - If only one partition is present, use it and print `Selected partition 1`
+			// - Else, prompt `Partition number (1,2,... default <>): `
+			// - Delete partition and print `Partition <> has been deleted.`
+		}
+
+		"F" => todo!(), // TODO
+
+		"l" => disk.get_partition_table_type().print_partition_types(),
+
+		"n" => {
+			let _new_partition = disk.get_partition_table_type().prompt_new_partition();
+			// TODO insert new partition to disk
+		}
+
+		"p" => println!("{}\n", disk),
+
+		"t" => {
+			// TODO:
+			// - If only one partition is present, use it and print `Selected partition 1`
+			// - Else, prompt `Partition number (1,2,... default <>): `
+			// - Prompt `Partition type (type L to list all): `
+			//   - On L: partition_table_type.print_partition_types()
+			// - Change type and print `Changed type of partition `<old>` to `<new>``
+		}
+
+		"v" => todo!(), // TODO
+
+		"i" => todo!(), // TODO
+
+		"m" => print_cmd_help(),
+
+		"I" => {
+			if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+				let script_path = PathBuf::from(script_path);
+
+				match import_script(disk, &script_path) {
+					Ok(_) => println!("\nScript successfully applied.\n"),
+
+					Err(e) => eprintln!(
+						"cannot import script {}: {}", script_path.display(), e
+					),
+				}
+			}
+		}
+
+		"O" => {
+			if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+				let script_path = PathBuf::from(script_path);
+
+				match export_script(disk, &script_path) {
+					Ok(_) => println!("\nScript successfully saved.\n"),
+
+					Err(e) => eprintln!(
+						"cannot export script {}: {}", script_path.display(), e
+					),
+				}
+			}
+		}
+
+		"w" => {
+			// TODO ask only if modifications have been made
+			let prompt_str = format!("Write changes to `{}`? (y/n) ", disk_path.display());
+			let confirm = prompt(Some(&prompt_str), false)
+				.map(|s| s == "y")
+				.unwrap_or(false);
+			if !confirm {
+				return;
+			}
+
+
+			match disk.write() {
+				Ok(_) => println!("The partition table has been altered."),
+
+				Err(e) => {
+					eprintln!("cannot write to disk `{}`: {}", disk_path.display(), e);
+					exit(1);
+				}
+			}
+
+			match disk::read_partitions(disk.get_path()) {
+				Ok(_) => println!("Syncing disks."),
+
+				Err(e) => {
+					eprintln!("cannot read partition table from `{}`: {}", disk_path.display(), e);
+					exit(1);
+				}
+			}
+
+			exit(0);
+		}
+
+		"q" => exit(0),
+
+		"g" => {
+			// TODO:
+			// - Remove all partitions
+			// - If the partition table type is not the same:
+			//   - Change partition table type
+			//   - Print `Created a new GPT disklabel (GUID: <>)\n`
+		}
+
+		"o" => {
+			// TODO:
+			// - Remove all partitions
+			// - If the partition table type is not the same:
+			//   - Change partition table type
+			//   - Print `Created a new DOS disklabel (identifier: <>)\n`
+		}
+
+		_ => eprintln!("{}: unknown command", cmd),
+	}
+
+	println!();
+}
+
 fn main() {
 	let args = parse_args();
 
@@ -167,17 +292,30 @@ fn main() {
 	if args.list {
 		let disks_count = args.disks.len();
 
-		for (i, path) in args.disks.into_iter().enumerate() {
+		let iter = if disks_count > 0 {
+			args.disks.into_iter()
+		} else {
+			match Disk::list() {
+				Ok(disks) => disks.into_iter(),
+
+				Err(e) => {
+					eprintln!("{}: cannot list disks: {}", args.prog, e);
+					exit(1);
+				}
+			}
+		};
+
+		for (i, path) in iter.enumerate() {
 			match Disk::read(path.clone()) {
-				Ok(Some(disk)) => print!("{}", disk),
+				Ok(Some(disk)) => println!("{}\n", disk),
 
 				Ok(None) => {
 					eprintln!("{}: cannot open {}: Invalid argument", args.prog, path.display());
-				},
+				}
 
 				Err(e) => {
 					eprintln!("{}: cannot open {}: {}", args.prog, path.display(), e);
-				},
+				}
 			}
 
 			if i + 1 < disks_count {
@@ -194,106 +332,10 @@ fn main() {
 		let mut disk = Disk::read(disk_path.clone())
 			.unwrap() // TODO handle error
 			.unwrap(); // TODO handle error
-		let partition_table_type = PartitionTableType::MBR; // TODO get from disk
 
 		while let Some(cmd) = prompt(Some("Command (m for help): "), false) {
-			match cmd.as_str() {
-				"a" => todo!(), // TODO
-
-				"c" => todo!(), // TODO
-
-				"d" => todo!(), // TODO
-
-				"F" => todo!(), // TODO
-
-				"l" => partition_table_type.print_partition_types(),
-
-				"n" => {
-					let _new_partition = partition_table_type.prompt_new_partition();
-					// TODO insert new partition to disk
-				},
-
-				"p" => todo!(), // TODO
-
-				"t" => todo!(), // TODO
-
-				"v" => todo!(), // TODO
-
-				"i" => todo!(), // TODO
-
-				"m" => print_cmd_help(),
-
-				"I" => {
-					if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
-						let script_path = PathBuf::from(script_path);
-
-						match import_script(&mut disk, &script_path) {
-							Ok(_) => println!("\nScript successfully applied.\n"),
-
-							Err(e) => eprintln!(
-								"cannot import script {}: {}", script_path.display(), e
-							),
-						}
-					}
-				}
-
-				"O" => {
-					if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
-						let script_path = PathBuf::from(script_path);
-
-						match export_script(&disk, &script_path) {
-							Ok(_) => println!("\nScript successfully saved.\n"),
-
-							Err(e) => eprintln!(
-								"cannot export script {}: {}", script_path.display(), e
-							),
-						}
-					}
-				}
-
-				"w" => {
-					// TODO ask only if modifications have been made
-					let prompt_str = format!("Write changes to `{}`? (y/n) ", disk_path.display());
-					let confirm = prompt(Some(&prompt_str), false)
-						.map(|s| s == "y")
-						.unwrap_or(false);
-					if confirm {
-						continue;
-					}
-
-					match disk.write() {
-						Ok(_) => exit(0),
-
-						Err(e) => {
-							eprintln!("cannot write to disk `{}`: {}", disk_path.display(), e);
-							exit(1);
-						}
-					}
-				},
-
-				"q" => {
-					// TODO ask only if mdoifications have been made
-					let confirm = prompt(Some("Exit without saving? (y/n) "), false)
-						.map(|s| s == "y")
-						.unwrap_or(false);
-					if confirm {
-						continue;
-					}
-
-					exit(0);
-				},
-
-				"g" => todo!(), // TODO
-
-				"o" => todo!(), // TODO
-
-				_ => eprintln!("{}: unknown command", cmd),
-			}
-
-			println!();
+			handle_cmd(&cmd, disk_path, &mut disk);
 		}
-
-		// TODO on modifications, ask for confirm before exiting
 	} else {
 		// TODO Read and parse script
 		// TODO Write partition table accordingly
