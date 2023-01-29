@@ -3,15 +3,26 @@
 mod power;
 
 use power::halt;
+use power::poweroff;
 use power::reboot;
+use power::suspend;
 use std::env;
 use std::process::exit;
 
 /// Prints command usage.
+///
 /// `name` is the name of the binary.
 fn print_usage(name: Option<&str>) {
-    // TODO
-    todo!();
+	let name = name.unwrap_or("shutdown/poweroff/reboot/halt/suspend");
+
+	println!("Usage:");
+	println!(" {} [-f] [-n]", name);
+	println!();
+	println!("Controls the system's power.");
+	println!();
+	println!("Options:");
+	println!(" -f\tforce operation without stopping services");
+	println!(" -n\tdon't synchronize storage");
 }
 
 /// Structure representing input arguments.
@@ -24,7 +35,7 @@ struct Args {
 
 /// Parses arguments from the given array.
 fn parse_args(args: Vec<String>) -> Option<Args> {
-    let mut err = false;
+	let mut err = false;
     let mut result = Args {
         force: false,
         no_sync: false,
@@ -39,16 +50,16 @@ fn parse_args(args: Vec<String>) -> Option<Args> {
 
                 _ => {
                     eprintln!("Invalid argument `{}`", a);
-                    err = true;
+					err = true;
                 },
             }
         });
 
-    if !err {
-        Some(result)
-    } else {
-        None
-    }
+	if !err {
+		Some(result)
+	} else {
+		None
+	}
 }
 
 fn main() {
@@ -75,14 +86,10 @@ fn main() {
     }
 
     match bin.as_str() {
-        "shutdown" | "poweroff" => {
-            // TODO
-            todo!();
-        },
-
+        "shutdown" | "poweroff" => poweroff(),
         "reboot" => reboot(),
-
         "halt" => halt(),
+        "suspend" => suspend(),
 
         _ => {
             print_usage(Some(&bin));
