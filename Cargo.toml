@@ -1,9 +1,11 @@
 [workspace]
 
 members = [
+	"insmod",
 	"login",
 	"powerctl",
 	"ps",
+	"rmmod",
 	"su",
 	"usrgrp",
 	"utils",
