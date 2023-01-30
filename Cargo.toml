@@ -12,3 +12,7 @@ members = [
 	"usrgrp",
 	"utils",
 ]
+
+[profile.release]
+lto = true
+strip = true
