@@ -39,6 +39,9 @@ version = "0.1.0"
 [[package]]
 name = "powerctl"
 version = "0.1.0"
+dependencies = [
+ "utils",
+]
 
 [[package]]
 name = "ps"

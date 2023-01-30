@@ -1,7 +1,6 @@
 //! The `dmesg` command allows to print the kernel's logs.
 
 use std::env;
-use std::fs::File;
 
 /// The path to the kmsg device file.
 const KMSG_PATH: &str = "/dev/kmsg";
