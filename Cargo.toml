@@ -4,6 +4,7 @@ members = [
 	"dmesg",
 	"insmod",
 	"login",
+	"lsmod",
 	"powerctl",
 	"ps",
 	"rmmod",
