@@ -45,6 +45,7 @@ pub struct User {
 
 impl User {
 	/// Check the given (not hashed) password `pass` against the current entry.
+	///
 	/// If the function returns None, the callee must use the shadow entry.
 	pub fn check_password(&self, pass: &str) -> Option<bool> {
 		if self.password.is_empty() || self.password == "x" {
@@ -112,7 +113,7 @@ pub struct Group {
 }
 
 /// Reads and parses the file at path `path`.
-pub fn parse_file(path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+fn read(path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
 	let file = File::open(path)?;
 	let mut data = vec![];
 
@@ -123,11 +124,34 @@ pub fn parse_file(path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
 	Ok(data)
 }
 
+/// Writes the file at path `path` with data `data`.
+fn write(path: &str, data: &Vec<Vec<String>>) -> Result<(), Box<dyn Error>> {
+	let mut file = File::open(path)?;
+	let mut content = String::new();
+
+	for line in data {
+		for (i, elem) in line.iter().enumerate() {
+			if elem.contains(':') {
+				return Err("entry cannot contain character `:`".into());
+			}
+
+			content += elem;
+			if i + 1 < line.len() {
+				content += ":";
+			}
+		}
+	}
+
+	file.write(content.as_bytes())?;
+	Ok(())
+}
+
 /// Reads the passwd file.
+///
 /// `path` is the path to the file.
 pub fn read_passwd(path: &str) -> Result<Vec<User>, Box<dyn Error>> {
-	let entries = parse_file(path)?;
-	entries.into_iter()
+	read(path)?
+		.into_iter()
 		.enumerate()
 		.map(| (i, data) | {
 			if data.len() != 7 {
@@ -148,10 +172,11 @@ pub fn read_passwd(path: &str) -> Result<Vec<User>, Box<dyn Error>> {
 }
 
 /// Reads the shadow file.
+///
 /// `path` is the path to the file.
 pub fn read_shadow(path: &str) -> Result<Vec<Shadow>, Box<dyn Error>> {
-	let entries = parse_file(path)?;
-	entries.into_iter()
+	read(path)?
+		.into_iter()
 		.enumerate()
 		.map(| (i, data) | {
 			if data.len() != 9 {
@@ -174,10 +199,11 @@ pub fn read_shadow(path: &str) -> Result<Vec<Shadow>, Box<dyn Error>> {
 }
 
 /// Reads the group file.
+///
 /// `path` is the path to the file.
 pub fn read_group(path: &str) -> Result<Vec<Group>, Box<dyn Error>> {
-	let entries = parse_file(path)?;
-	entries.into_iter()
+	read(path)?
+		.into_iter()
 		.enumerate()
 		.map(| (i, data) | {
 			if data.len() != 4 {
@@ -192,28 +218,6 @@ pub fn read_group(path: &str) -> Result<Vec<Group>, Box<dyn Error>> {
 			})
 		})
 		.collect()
-}
-
-/// Writes the file at path `path` with data `data`.
-pub fn write(path: &str, data: &Vec<Vec<String>>) -> Result<(), Box<dyn Error>> {
-	let mut file = File::open(path)?;
-	let mut content = String::new();
-
-	for line in data {
-		for (i, elem) in line.iter().enumerate() {
-			if elem.contains(':') {
-				return Err("entry cannot contain character `:`".into());
-			}
-
-			content += elem;
-			if i + 1 < line.len() {
-				content += ":";
-			}
-		}
-	}
-
-	file.write(content.as_bytes())?;
-	Ok(())
 }
 
 /// Sets the current user.

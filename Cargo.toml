@@ -1,12 +1,17 @@
 [workspace]
 
 members = [
+	"dmesg",
 	"fdisk",
+	"insmod",
 	"login",
+	"lsmod",
 	"mkfs",
 	"powerctl",
 	"ps",
+	"rmmod",
 	"su",
+	"usrgrp",
 	"utils",
 ]
 

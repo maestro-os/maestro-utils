@@ -1,6 +1,7 @@
 //! This module handles power management system calls.
 
 use std::os::raw::c_long;
+use utils::syscall;
 
 /// The ID of the `reboot` system call.
 const REBOOT_ID: c_long = 0x58;
@@ -18,10 +19,6 @@ const CMD_REBOOT: u32 = 1;
 const CMD_HALT: u32 = 2;
 /// Command to suspend the system.
 const CMD_SUSPEND: u32 = 3;
-
-extern "C" {
-    fn syscall(number: c_long, ...);
-}
 
 /// Power off the system.
 pub fn poweroff() {
