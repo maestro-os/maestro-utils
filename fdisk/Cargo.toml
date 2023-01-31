@@ -3,6 +3,14 @@ name = "fdisk"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "fdisk"
+path = "src/lib.rs"
+
+[[bin]]
+name = "fdisk"
+path = "src/main.rs"
+
 [dependencies]
 libc = "0.2.139"
 utils = { path = "../utils" }
