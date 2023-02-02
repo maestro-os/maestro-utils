@@ -1,6 +1,7 @@
 //! TODO doc
 
 use crate::partition::PartitionTable;
+use libc::c_long;
 use libc::ioctl;
 use std::fmt;
 use std::fs::File;
@@ -24,14 +25,14 @@ macro_rules! ioc {
 #[macro_export]
 macro_rules! ior {
 	($a:expr, $b:expr, $c:ty) => {
-		ioc!(2, $a, $b, std::mem::size_of::<$c>() as u64)
+		ioc!(2, $a, $b, std::mem::size_of::<$c>() as c_long)
 	};
 }
 
 /// ioctl command: Get size of disk in number of sectors.
-const BLKGETSIZE64: u64 = ior!(0x12, 114, usize);
+const BLKGETSIZE64: c_long = ior!(0x12, 114, u64);
 /// ioctl command: Read a partitions table.
-const BLKRRPART: u64 = 0x125f;
+const BLKRRPART: c_long = 0x125f;
 
 /// Structure representing a disk, containing partitions.
 pub struct Disk {
@@ -193,7 +194,7 @@ pub fn read_partitions(path: &Path) -> io::Result<()> {
 	let dev = File::open(path)?;
 
 	let ret = unsafe {
-		ioctl(dev.as_raw_fd(), BLKRRPART, 0)
+		ioctl(dev.as_raw_fd(), BLKRRPART as _, 0)
 	};
 	if ret < 0 {
 		return Err(Error::last_os_error());
