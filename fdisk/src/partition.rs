@@ -3,8 +3,15 @@
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::fs::File;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::io::Write;
 use std::io;
+use std::mem::size_of;
 use std::path::Path;
+use std::slice;
 use utils::prompt::prompt;
 
 /// The signature of the MBR partition table.
@@ -20,19 +27,27 @@ type GUID = [u8; 16];
 
 /// Structure representing a MBR partition.
 #[repr(C, packed)]
+#[derive(Clone, Copy, Default)]
 struct MBRPartition {
 	/// Partition attributes.
 	attrs: u8,
 	/// CHS address of partition start.
 	chs_start: [u8; 3],
 	/// The type of the partition.
-	parition_type: u8,
+	partition_type: u8,
 	/// CHS address of partition end.
 	chs_end: [u8; 3],
 	/// LBA address of partition start.
 	lba_start: u32,
 	/// The number of sectors in the partition.
 	sectors_count: u32,
+}
+
+impl MBRPartition {
+	/// Tells whether the partition is active.
+	pub fn is_active(&self) -> bool {
+		self.attrs & (1 << 7) != 0
+	}
 }
 
 /// Structure representing a MBR partition table.
@@ -311,6 +326,100 @@ impl PartitionTableType {
 			bootable: false,
 		}
 	}
+
+	/// Reads partitions from the storage device represented by `dev` and returns the list.
+	pub fn read(&self, dev: &mut File) -> io::Result<Option<Vec<Partition>>> {
+		match self {
+			Self::MBR => {
+				let mut buff: [u8; size_of::<MBRTable>()] = [0; size_of::<MBRTable>()];
+				dev.seek(SeekFrom::Start(0))?;
+				dev.read_exact(&mut buff)?;
+
+				let mbr = unsafe {
+					&*(buff.as_ptr() as *const MBRTable)
+				};
+				if mbr.signature != MBR_SIGNATURE {
+					return Ok(None);
+				}
+
+				let parts = mbr.partitions.iter()
+					.filter(|p| p.is_active())
+					.map(|p| Partition {
+						start: p.lba_start as _,
+						size: p.sectors_count as _,
+
+						part_type: format!("{}", p.partition_type),
+
+						uuid: None,
+
+						bootable: true,
+					})
+					.collect();
+				Ok(Some(parts))
+			}
+
+			Self::GPT => {
+				let mut buff: [u8; size_of::<GPT>()] = [0; size_of::<GPT>()];
+				dev.seek(SeekFrom::Start(512))?;
+				dev.read_exact(&mut buff)?;
+
+				let gpt = unsafe {
+					&*(buff.as_ptr() as *const GPT)
+				};
+				if gpt.signature != GPT_SIGNATURE {
+					return Ok(None);
+				}
+				// TODO check checksum
+
+				// TODO iterate on partitions
+				todo!();
+			}
+		}
+	}
+
+	/// Writes the partitions table to the storage device represented by `dev`.
+	pub fn write(&self, dev: &mut File, partitions: &[Partition]) -> io::Result<()> {
+		match self {
+			Self::MBR => {
+				let mut mbr = MBRTable {
+					boot: [0; 440],
+					disk_signature: 0,
+					zero: 0,
+					partitions: [MBRPartition::default(); 4],
+					signature: MBR_SIGNATURE,
+				};
+
+				if partitions.len() > mbr.partitions.len() {
+					// TODO error
+					todo!();
+				}
+
+				for (i, p) in partitions.iter().enumerate() {
+					mbr.partitions[i] = MBRPartition {
+						attrs: 1 << 7,
+						chs_start: [0; 3],
+						partition_type: 0, // TODO
+						chs_end: [0; 3],
+						lba_start: p.start as _,
+						sectors_count: p.size as _,
+					};
+				}
+
+				let slice = unsafe {
+					slice::from_raw_parts(
+						&mbr as *const _ as *const _, size_of::<MBRTable>() - mbr.boot.len()
+					)
+				};
+				dev.seek(SeekFrom::Start(mbr.boot.len() as _))?;
+				dev.write_all(slice)
+			}
+
+			Self::GPT => {
+				// TODO
+				todo!();
+			}
+		}
+	}
 }
 
 impl fmt::Display for PartitionTableType {
@@ -373,14 +482,32 @@ impl PartitionTable {
 	///
 	/// If the table is invalid, the function returns an empty MBR table.
 	pub fn read(path: &Path) -> io::Result<Self> {
-		// TODO
-		todo!();
+		let mut file = File::open(path)?;
+
+		let partition_types = vec![
+			PartitionTableType::GPT,
+			PartitionTableType::MBR
+		];
+
+		for t in partition_types {
+			if let Some(partitions) = t.read(&mut file)? {
+				return Ok(PartitionTable {
+					table_type: t,
+					partitions,
+				});
+			}
+		}
+
+		Ok(PartitionTable {
+			table_type: PartitionTableType::MBR,
+			partitions: vec![],
+		})
 	}
 
 	/// Writes the partition table to the disk device at the given path.
 	pub fn write(&self, path: &Path) -> io::Result<()> {
-		// TODO
-		todo!();
+		let mut file = File::open(path)?;
+		self.table_type.write(&mut file, &self.partitions)
 	}
 
 	/// Serializes a partitions list into a sfdisk script.
