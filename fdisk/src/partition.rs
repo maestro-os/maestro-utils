@@ -23,7 +23,30 @@ const GPT_SIGNATURE: &[u8] = b"EFI PART";
 const GPT_CHECKSUM_POLYNOM: u32 = 0x4c11db7;
 
 /// Type representing a Globally Unique IDentifier.
-type GUID = [u8; 16];
+struct GUID([u8; 16]);
+
+impl fmt::Display for GUID {
+	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+		for i in 0..4 {
+			write!(fmt, "{:02x}", self.0[i])?;
+		}
+		write!(fmt, "-")?;
+
+		for i in 0..3 {
+			for j in 0..2 {
+				write!(fmt, "{:02x}", self.0[4 + i * 2 + j])?;
+			}
+
+			write!(fmt, "-")?;
+		}
+
+		for i in 10..16 {
+			write!(fmt, "{:02x}", self.0[i])?;
+		}
+
+		Ok(())
+	}
+}
 
 /// Structure representing a MBR partition.
 #[repr(C, packed)]
@@ -79,7 +102,7 @@ struct GPTEntry {
 	/// Entry's attributes.
 	attributes: u64,
 	/// The partition's name.
-	name: [u16],
+	name: [u16; 72],
 }
 
 /// Structure representing the GPT header.
@@ -371,8 +394,36 @@ impl PartitionTableType {
 				}
 				// TODO check checksum
 
-				// TODO iterate on partitions
-				todo!();
+				let mut parts = Vec::new();
+
+				for i in 0..gpt.entries_number {
+					let off = 1024 + i * gpt.entry_size;
+
+					let mut buff = vec![0; gpt.entry_size as usize];
+					dev.seek(SeekFrom::Start(off as _))?;
+					dev.read_exact(&mut buff)?;
+
+					let entry = unsafe {
+						&*(buff.as_ptr() as *const GPTEntry)
+					};
+
+					let part_type = format!("{}", entry.partition_type);
+					let uuid = format!("{}", entry.guid);
+
+					// TODO handle negative lba
+					parts.push(Partition {
+						start: entry.start as _,
+						size: (entry.end - entry.start) as _,
+
+						part_type,
+
+						uuid: Some(uuid),
+
+						bootable: false,
+					});
+				}
+
+				Ok(Some(parts))
 			}
 		}
 	}
@@ -415,6 +466,8 @@ impl PartitionTableType {
 			}
 
 			Self::GPT => {
+				// TODO write protective MBR (recursive call)
+
 				// TODO
 				todo!();
 			}
