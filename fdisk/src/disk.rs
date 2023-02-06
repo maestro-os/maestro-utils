@@ -86,7 +86,7 @@ impl Disk {
 
 	/// Writes the partition table to the disk.
 	pub fn write(&self) -> io::Result<()> {
-		self.partition_table.write(&self.dev_path)
+		self.partition_table.write(&self.dev_path, self.size)
 	}
 
 	/// Lists disks present on the system.

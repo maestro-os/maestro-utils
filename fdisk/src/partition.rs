@@ -25,7 +25,35 @@ const GPT_SIGNATURE: &[u8] = b"EFI PART";
 const GPT_CHECKSUM_POLYNOM: u32 = 0x4c11db7;
 
 /// Type representing a Globally Unique IDentifier.
-struct GUID([u8; 16]);
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct GUID([u8; 16]);
+
+impl TryFrom<&str> for GUID {
+	type Error = ();
+
+	fn try_from(s: &str) -> Result<Self, Self::Error> {
+		if s.len() != 36 {
+			return Err(());
+		}
+		if s.chars().any(|c| !c.is_alphanumeric() && c != '-') {
+			return Err(());
+		}
+
+		let mut guid = Self([0; 16]);
+
+		let mut iter = s.chars().filter(|c| *c != '-');
+		let mut i = 0;
+		while let (Some(hi), Some(lo)) = (iter.next(), iter.next()) {
+			let byte = String::from_iter([hi, lo]);
+			guid.0[i] = u8::from_str_radix(byte.as_str(), 16).unwrap();
+
+			i += 1;
+		}
+
+		Ok(guid)
+	}
+}
 
 impl fmt::Display for GUID {
 	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -548,11 +576,17 @@ impl PartitionTableType {
 		let sector_size = 512; // TODO get from disk?
 		let size = (end - start) / sector_size as u64;
 
+		// TODO use other values?
+		let part_type = match self {
+			Self::MBR => PartitionType::MBR(0),
+			Self::GPT => PartitionType::GPT(GUID([0; 16])),
+		};
+
 		Partition {
 			start,
 			size,
 
-			part_type: "TODO".to_string(), // TODO
+			part_type,
 
 			uuid: None, // TODO
 
@@ -581,7 +615,7 @@ impl PartitionTableType {
 						start: p.lba_start as _,
 						size: p.sectors_count as _,
 
-						part_type: format!("{}", p.partition_type),
+						part_type: PartitionType::MBR(p.partition_type),
 
 						uuid: None,
 
@@ -617,17 +651,14 @@ impl PartitionTableType {
 						&*(buff.as_ptr() as *const GPTEntry)
 					};
 
-					let part_type = format!("{}", entry.partition_type);
-					let uuid = format!("{}", entry.guid);
-
 					// TODO handle negative lba
 					parts.push(Partition {
 						start: entry.start as _,
 						size: (entry.end - entry.start) as _,
 
-						part_type,
+						part_type: PartitionType::GPT(entry.partition_type),
 
-						uuid: Some(uuid),
+						uuid: Some(entry.guid),
 
 						bootable: false,
 					});
@@ -639,7 +670,17 @@ impl PartitionTableType {
 	}
 
 	/// Writes the partitions table to the storage device represented by `dev`.
-	pub fn write(&self, dev: &mut File, partitions: &[Partition]) -> io::Result<()> {
+	///
+	/// Arguments:
+	/// - `dev` is the file representing the device.
+	/// - `partitions` is the list of partitions to be written.
+	/// - `sectors_count` is the number of sectors on the disk.
+	pub fn write(
+		&self,
+		dev: &mut File,
+		partitions: &[Partition],
+		sectors_count: u64
+	) -> io::Result<()> {
 		match self {
 			Self::MBR => {
 				let mut mbr = MBRTable {
@@ -656,10 +697,15 @@ impl PartitionTableType {
 				}
 
 				for (i, p) in partitions.iter().enumerate() {
+					let partition_type = match p.part_type {
+						PartitionType::MBR(i) => i,
+						_ => panic!(),
+					};
+
 					mbr.partitions[i] = MBRPartition {
 						attrs: 1 << 7,
 						chs_start: [0; 3],
-						partition_type: 0, // TODO
+						partition_type,
 						chs_end: [0; 3],
 						lba_start: p.start as _,
 						sectors_count: p.size as _,
@@ -676,20 +722,26 @@ impl PartitionTableType {
 			}
 
 			Self::GPT => {
-				let total_sectors_count = 0; // TODO
+				if partitions.len() > 128 {
+					// TODO error
+					todo!();
+				}
 
 				// Write protective MBR
 				Self::MBR.write(dev, &[Partition {
 					start: 1,
-					size: min(u32::MAX as u64, total_sectors_count),
+					size: min(u32::MAX as u64, sectors_count),
 
-					part_type: "".to_owned(), // TODO 0xee
+					part_type: PartitionType::MBR(0xee),
 
 					uuid: None,
 
 					bootable: true,
-				}])?;
+				}], sectors_count)?;
 
+				let disk_guid: GUID = GUID([0; 16]); // TODO random
+
+				// Primary table
 				let mut gpt = GPT {
 					signature: [0; 8],
 					revision: 0, // TODO
@@ -700,7 +752,7 @@ impl PartitionTableType {
 					alternate_hdr_lba: -1,
 					first_usable: 34,
 					last_usable: -34,
-					disk_guid: GUID([0; 16]), // TODO random
+					disk_guid: disk_guid.clone(),
 					entries_start: 2,
 					entries_number: partitions.len() as _,
 					entry_size: size_of::<GPTEntry>() as _,
@@ -708,28 +760,72 @@ impl PartitionTableType {
 				};
 				gpt.signature.copy_from_slice(GPT_SIGNATURE);
 
-				for (i, p) in partitions.iter().enumerate() {
-					let off = 1024 + i as u64 * gpt.entry_size as u64;
+				let parts: Vec<(u64, GPTEntry)> = partitions.iter()
+					.enumerate()
+					.map(|(i, p)| {
+						let off = 1024 + i as u64 * gpt.entry_size as u64;
 
-					let entry = GPTEntry {
-						partition_type: GUID([0; 16]), // TODO
-						guid: GUID([0; 16]), // TODO
-						start: p.start as _,
-						end: (p.start + p.size) as _,
-						attributes: 0, // TODO
-						name: [0; 72], // TODO
-					};
-					let slice = unsafe {
+						let partition_type = match p.part_type {
+							PartitionType::GPT(i) => i,
+							_ => panic!(),
+						};
+
+						let entry = GPTEntry {
+							partition_type,
+							guid: p.uuid.unwrap(),
+							start: p.start as _,
+							end: (p.start + p.size) as _,
+							attributes: 0, // TODO
+							name: [0; 72], // TODO
+						};
+
+						(off, entry)
+					})
+					.collect();
+
+				// TODO compute partitions checksum
+				// TODO compute header checksum
+
+				for (off, entry) in parts.iter() {
+					let entry_slice = unsafe {
 						slice::from_raw_parts(
 							&entry as *const _ as *const _, size_of::<GPTEntry>()
 						)
 					};
-
-					dev.seek(SeekFrom::Start(off))?;
-					dev.write_all(slice)?;
+					dev.seek(SeekFrom::Start(*off))?;
+					dev.write_all(entry_slice)?;
 				}
 
-				// TODO write alternate table
+				let table_slice = unsafe {
+					slice::from_raw_parts(
+						&gpt as *const _ as *const _, size_of::<GPT>()
+					)
+				};
+				dev.seek(SeekFrom::Start(1024))?;
+				dev.write_all(table_slice)?;
+
+				// Alternate table
+				let mut alternate_gpt = GPT {
+					signature: [0; 8],
+					revision: 0, // TODO
+					hdr_size: size_of::<GPT>() as _,
+					checksum: 0, // TODO
+					reserved: 0,
+					hdr_lba: -1,
+					alternate_hdr_lba: 1,
+					first_usable: 34,
+					last_usable: -34,
+					disk_guid,
+					entries_start: -33,
+					entries_number: partitions.len() as _,
+					entry_size: size_of::<GPTEntry>() as _,
+					entries_checksum: 0, // TODO
+				};
+				alternate_gpt.signature.copy_from_slice(GPT_SIGNATURE);
+				// TODO compute partitions checksum
+				// TODO compute header checksum
+
+				// TODO write table
 
 				Ok(())
 			}
@@ -746,6 +842,44 @@ impl fmt::Display for PartitionTableType {
 	}
 }
 
+/// Enumeration of partition type formats.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PartitionType {
+	/// MBR partition type.
+	MBR(u8),
+	/// GPT partition type.
+	GPT(GUID),
+}
+
+impl Default for PartitionType {
+	fn default() -> Self {
+		Self::MBR(0)
+	}
+}
+
+impl TryFrom<&str> for PartitionType {
+	type Error = ();
+
+	fn try_from(s: &str) -> Result<Self, Self::Error> {
+		GUID::try_from(s)
+			.map(|id| Self::GPT(id))
+			.or_else(|_| {
+				u8::from_str_radix(s, 16)
+					.map(|id| Self::MBR(id))
+			})
+			.map_err(|_| ())
+	}
+}
+
+impl fmt::Display for PartitionType {
+	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::MBR(n) => write!(fmt, "{:x}", n),
+			Self::GPT(n) => write!(fmt, "{}", n),
+		}
+	}
+}
+
 /// Structure storing informations about a partition.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Partition {
@@ -755,10 +889,10 @@ pub struct Partition {
 	pub size: u64,
 
 	/// The partition type.
-	pub part_type: String,
+	pub part_type: PartitionType,
 
 	/// The partition's UUID.
-	pub uuid: Option<String>,
+	pub uuid: Option<GUID>,
 
 	/// Tells whether the partition is bootable.
 	pub bootable: bool,
@@ -819,10 +953,14 @@ impl PartitionTable {
 		})
 	}
 
-	/// Writes the partition table to the disk device at the given path.
-	pub fn write(&self, path: &Path) -> io::Result<()> {
+	/// Writes the partition table to the disk device.
+	///
+	/// Arguments:
+	/// - `path` is the path to the device.
+	/// - `sectors_count` is the number of sectors on the device.
+	pub fn write(&self, path: &Path, sectors_count: u64) -> io::Result<()> {
 		let mut file = File::open(path)?;
-		self.table_type.write(&mut file, &self.partitions)
+		self.table_type.write(&mut file, &self.partitions, sectors_count)
 	}
 
 	/// Serializes a partitions list into a sfdisk script.
@@ -851,7 +989,7 @@ impl PartitionTable {
 	/// Deserializes a partitions list from a given sfdisk script.
 	///
 	/// The function returns the list of partitions.
-	pub fn deserialize(script: &str) -> Self {
+	pub fn deserialize(script: &str) -> Result<Self, String> {
 		// Skip header
 		let mut iter = script.split('\n');
 		while let Some(line) = iter.next() {
@@ -869,8 +1007,7 @@ impl PartitionTable {
 
 			let mut split = line.split(':').skip(1);
 			let Some(values) = split.next() else {
-				// TODO error
-				todo!();
+				return Err(format!("Invalid syntax"));
 			};
 
 			// Filling partition structure
@@ -878,8 +1015,7 @@ impl PartitionTable {
 			for v in values.split(',') {
 				let mut split = v.split('=');
 				let Some(name) = split.next() else {
-					// TODO error
-					todo!();
+					return Err(format!("Invalid syntax"));
 				};
 
 				let name = name.trim();
@@ -888,63 +1024,60 @@ impl PartitionTable {
 				match name {
 					"start" => {
 						let Some(val) = value else {
-							// TODO error
-							todo!();
+							return Err("`start` requires a value".into());
 						};
-						let Ok(val) = val.parse() else {
-							// TODO error
-							todo!();
+						let Ok(v) = val.parse() else {
+							return Err(format!("Invalid value for `start`: {}", val));
 						};
 
-						part.start = val;
+						part.start = v;
 					}
 
 					"size" => {
 						let Some(val) = value else {
-							// TODO error
-							todo!();
+							return Err("`size` requires a value".into());
 						};
-						let Ok(val) = val.parse() else {
-							// TODO error
-							todo!();
+						let Ok(v) = val.parse() else {
+							return Err(format!("Invalid value for `size`: {}", val));
 						};
 
-						part.size = val;
+						part.size = v;
 					}
 
 					"type" => {
 						let Some(val) = value else {
-							// TODO error
-							todo!();
+							return Err("`type` requires a value".into());
+						};
+						let Ok(v) = val.try_into() else {
+							return Err(format!("Invalid value for `type`: {}", val));
 						};
 
-						part.part_type = val.to_string();
+						part.part_type = v;
 					}
 
 					"uuid" => {
 						let Some(val) = value else {
-							// TODO error
-							todo!();
+							return Err("`uuid` requires a value".into());
+						};
+						let Ok(val) = val.try_into() else {
+							return Err(format!("Invalid value for `uuid`: {}", val));
 						};
 
-						part.uuid = Some(val.to_string());
+						part.uuid = Some(val);
 					}
 
 					"bootable" => part.bootable = true,
 
-					_ => {
-						// TODO error
-						todo!();
-					}
+					_ => return Err(format!("Unknown attribute: `{}`", name)),
 				}
 			}
 
 			partitions.push(part);
 		}
 
-		Self {
+		Ok(Self {
 			table_type: PartitionTableType::MBR, // TODO
 			partitions,
-		}
+		})
 	}
 }

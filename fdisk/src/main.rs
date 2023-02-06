@@ -130,7 +130,8 @@ fn print_cmd_help() {
 /// Imports the script in the file at the given path and applies it to the given disk.
 fn import_script(disk: &mut Disk, path: &Path) -> io::Result<()> {
 	let script = fs::read_to_string(path)?;
-	disk.partition_table = PartitionTable::deserialize(&script);
+	// TODO handle error
+	disk.partition_table = PartitionTable::deserialize(&script).unwrap();
 
 	Ok(())
 }
