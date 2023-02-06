@@ -1,7 +1,7 @@
 //! TODO
 
 use std::cmp::max;
-use std::collections::BTreeMap;
+use std::cmp::min;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -13,6 +13,8 @@ use std::mem::size_of;
 use std::path::Path;
 use std::slice;
 use utils::prompt::prompt;
+
+// TODO adapt to disks whose sector size is different than 512
 
 /// The signature of the MBR partition table.
 const MBR_SIGNATURE: u16 = 0x55aa;
@@ -123,9 +125,9 @@ pub struct GPT {
 	/// The LBA of the sector containing the alternate header.
 	alternate_hdr_lba: i64,
 	/// The first usable sector.
-	first_usable: u64,
+	first_usable: i64,
 	/// The last usable sector.
-	last_usable: u64,
+	last_usable: i64,
 	/// The disk's GUID.
 	disk_guid: GUID,
 	/// The LBA of the beginning of the GUID partition entries array.
@@ -674,10 +676,62 @@ impl PartitionTableType {
 			}
 
 			Self::GPT => {
-				// TODO write protective MBR (recursive call)
+				let total_sectors_count = 0; // TODO
 
-				// TODO
-				todo!();
+				// Write protective MBR
+				Self::MBR.write(dev, &[Partition {
+					start: 1,
+					size: min(u32::MAX as u64, total_sectors_count),
+
+					part_type: "".to_owned(), // TODO 0xee
+
+					uuid: None,
+
+					bootable: true,
+				}])?;
+
+				let mut gpt = GPT {
+					signature: [0; 8],
+					revision: 0, // TODO
+					hdr_size: size_of::<GPT>() as _,
+					checksum: 0, // TODO
+					reserved: 0,
+					hdr_lba: 1,
+					alternate_hdr_lba: -1,
+					first_usable: 34,
+					last_usable: -34,
+					disk_guid: GUID([0; 16]), // TODO random
+					entries_start: 2,
+					entries_number: partitions.len() as _,
+					entry_size: size_of::<GPTEntry>() as _,
+					entries_checksum: 0, // TODO
+				};
+				gpt.signature.copy_from_slice(GPT_SIGNATURE);
+
+				for (i, p) in partitions.iter().enumerate() {
+					let off = 1024 + i as u64 * gpt.entry_size as u64;
+
+					let entry = GPTEntry {
+						partition_type: GUID([0; 16]), // TODO
+						guid: GUID([0; 16]), // TODO
+						start: p.start as _,
+						end: (p.start + p.size) as _,
+						attributes: 0, // TODO
+						name: [0; 72], // TODO
+					};
+					let slice = unsafe {
+						slice::from_raw_parts(
+							&entry as *const _ as *const _, size_of::<GPTEntry>()
+						)
+					};
+
+					dev.seek(SeekFrom::Start(off))?;
+					dev.write_all(slice)?;
+				}
+
+				// TODO write alternate table
+
+				Ok(())
 			}
 		}
 	}
