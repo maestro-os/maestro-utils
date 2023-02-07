@@ -1,5 +1,6 @@
 //! TODO
 
+use crate::crc32;
 use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
@@ -814,7 +815,7 @@ impl PartitionTableType {
 					signature: [0; 8],
 					revision: 0, // TODO
 					hdr_size: size_of::<GPT>() as _,
-					checksum: 0, // TODO
+					checksum: 0,
 					reserved: 0,
 					hdr_lba: 1,
 					alternate_hdr_lba: -1,
@@ -847,8 +848,22 @@ impl PartitionTableType {
 						entry
 					})
 					.collect();
-				// TODO compute partitions checksum
-				// TODO compute header checksum
+
+				let mut crc32_table: [u32; 256] = [0; 256];
+				crc32::compute_lookuptable(&mut crc32_table, GPT_CHECKSUM_POLYNOM);
+
+				let parts_slice = unsafe {
+					slice::from_raw_parts(
+						parts.as_ptr() as *const u8,
+						parts.len() * size_of::<GPTEntry>()
+					)
+				};
+				gpt.checksum = crc32::compute(parts_slice, &crc32_table);
+
+				let hdr_slice = unsafe {
+					slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<GPT>())
+				};
+				gpt.entries_checksum = crc32::compute(hdr_slice, &crc32_table);
 
 				Self::write_gpt(dev, sectors_count, 1, &gpt, &parts)?;
 

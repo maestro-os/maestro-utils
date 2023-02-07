@@ -5,9 +5,9 @@
 /// Computes the lookup table for the given generator polynomial.
 ///
 /// Arguments:
-/// `table` is filled with the table's values.
-/// `polynom` is the polynom.
-pub fn compute_crc32_lookuptable(table: &mut [u32; 256], polynom: u32) {
+/// - `table` is filled with the table's values.
+/// - `polynom` is the polynom.
+pub fn compute_lookuptable(table: &mut [u32; 256], polynom: u32) {
 	// Little endian
 	let mut i = table.len() / 2;
 	let mut crc = 1;
@@ -47,10 +47,10 @@ pub fn compute_crc32_lookuptable(table: &mut [u32; 256], polynom: u32) {
 
 /// Computes the CRC32 checksum on the given data `data` with the given table
 /// `table` for the wanted generator polynomial.
-pub fn compute_crc32(data: &[u8], table: &[u32; 256]) -> u32 {
+pub fn compute(data: &[u8], table: &[u32; 256]) -> u32 {
 	// Sarwate algorithm
-	//let mut crc = !(0 as u32);
-	let mut crc = 0 as u32;
+	let mut crc = !(0 as u32);
+	//let mut crc = 0 as u32;
 
 	for b in data {
 		let i = ((crc & 0xff) ^ (*b as u32)) as usize;
@@ -70,9 +70,9 @@ mod test {
 	fn crc32_0() {
 		for polynom in 0..u8::MAX {
 			let mut lookup_table = [0; 256];
-			compute_crc32_lookuptable(&mut lookup_table, polynom as _);
+			compute_lookuptable(&mut lookup_table, polynom as _);
 
-			for i in 0..=u16::MAX {
+			for i in u16::MIN..=u16::MAX {
 				let data = [
 					i as _,
 					(i >> 8) as _,
@@ -81,7 +81,7 @@ mod test {
 					0,
 					0,
 				];
-				let checksum = compute_crc32(&data, &lookup_table);
+				let checksum = compute(&data, &lookup_table);
 
 				let check = [
 					data[0],
@@ -91,7 +91,7 @@ mod test {
 					(checksum >> 16) as _,
 					(checksum >> 24) as _,
 				];
-				assert_eq!(compute_crc32(&check, &lookup_table), 0);
+				assert_eq!(compute(&check, &lookup_table), 0);
 			}
 		}
 	}
