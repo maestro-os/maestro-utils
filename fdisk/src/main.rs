@@ -3,6 +3,7 @@
 //! The `sfdisk` is also implemented in the same program, it has the purpose as `fdisk`, except it
 //! uses scripting instead of prompting.
 
+mod crc32;
 mod disk;
 mod partition;
 

@@ -203,6 +203,7 @@ pub struct GPT {
 }
 
 /// Enumeration of partition table types.
+#[derive(Debug, Eq, PartialEq)]
 pub enum PartitionTableType {
 	/// Master Boot Record.
 	MBR,
@@ -948,6 +949,7 @@ impl fmt::Display for Partition {
 }
 
 /// Structure representing a partition table.
+#[derive(Debug, Eq, PartialEq)]
 pub struct PartitionTable {
 	/// The type of the partition table.
 	pub table_type: PartitionTableType,
@@ -1111,4 +1113,47 @@ impl PartitionTable {
 			partitions,
 		})
 	}
+}
+
+#[cfg(test)]
+mod test {
+	use std::path::PathBuf;
+	use super::*;
+
+	#[test]
+	fn partitions_serialize0() {
+		let table0 = PartitionTable {
+			table_type: PartitionTableType::MBR,
+			partitions: vec![],
+		};
+
+		let script = table0.serialize(&PathBuf::from("/dev/sda"));
+		let table1 = PartitionTable::deserialize(&script).unwrap();
+
+		assert_eq!(table0, table1);
+	}
+
+	#[test]
+	fn partitions_serialize1() {
+		let table0 = PartitionTable {
+			table_type: PartitionTableType::MBR,
+			partitions: vec![Partition {
+				start: 0,
+				size: 1,
+
+				part_type: PartitionType::MBR(0xab),
+
+				uuid: Some(GUID([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])),
+
+				bootable: false,
+			}],
+		};
+
+		let script = table0.serialize(&PathBuf::from("/dev/sda"));
+		let table1 = PartitionTable::deserialize(&script).unwrap();
+
+		assert_eq!(table0, table1);
+	}
+
+	// TODO More tests (especially invalid scripts)
 }
