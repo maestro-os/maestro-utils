@@ -4,6 +4,7 @@ use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
@@ -23,6 +24,27 @@ const MBR_SIGNATURE: u16 = 0x55aa;
 const GPT_SIGNATURE: &[u8] = b"EFI PART";
 /// The polynom used in the computation of the CRC32 checksum.
 const GPT_CHECKSUM_POLYNOM: u32 = 0x4c11db7;
+
+/// Translates the given LBA value `lba` into a positive LBA value.
+///
+/// `storage_size` is the number of blocks on the storage device.
+///
+/// If the LBA is out of bounds of the storage device, the function returns `None`.
+fn translate_lba(lba: i64, storage_size: u64) -> Option<u64> {
+	if lba < 0 {
+		if (-lba as u64) <= storage_size {
+			Some(storage_size - (-lba as u64))
+		} else {
+			None
+		}
+	} else {
+		if (lba as u64) < storage_size {
+			Some(lba as _)
+		} else {
+			None
+		}
+	}
+}
 
 /// Type representing a Globally Unique IDentifier.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -52,6 +74,18 @@ impl TryFrom<&str> for GUID {
 		}
 
 		Ok(guid)
+	}
+}
+
+impl GUID {
+	/// Generates a random GUID.
+	pub fn random() -> io::Result<Self> {
+		let mut rand_dev = File::open("/dev/urandom")?;
+
+		let mut s = Self([0; 16]);
+		rand_dev.read_exact(&mut s.0)?;
+
+		Ok(s)
 	}
 }
 
@@ -669,6 +703,39 @@ impl PartitionTableType {
 		}
 	}
 
+	/// Writes a GPT header and partitions.
+	fn write_gpt(
+		dev: &mut File,
+		storage_size: u64,
+		hdr_off: i64,
+		hdr: &GPT,
+		parts: &[GPTEntry]
+	) -> io::Result<()> {
+		let hdr_off = translate_lba(hdr_off, storage_size).unwrap();
+
+		for (i, entry) in parts.iter().enumerate() {
+			let off = hdr_off + i as u64 * size_of::<GPTEntry>() as u64;
+
+			let entry_slice = unsafe {
+				slice::from_raw_parts(
+					&entry as *const _ as *const _, size_of::<GPTEntry>()
+				)
+			};
+			dev.seek(SeekFrom::Start(off))?;
+			dev.write_all(entry_slice)?;
+		}
+
+		let hdr_slice = unsafe {
+			slice::from_raw_parts(
+				&hdr as *const _ as *const _, size_of::<GPT>()
+			)
+		};
+		dev.seek(SeekFrom::Start(1024))?;
+		dev.write_all(hdr_slice)?;
+
+		Ok(())
+	}
+
 	/// Writes the partitions table to the storage device represented by `dev`.
 	///
 	/// Arguments:
@@ -739,7 +806,7 @@ impl PartitionTableType {
 					bootable: true,
 				}], sectors_count)?;
 
-				let disk_guid: GUID = GUID([0; 16]); // TODO random
+				let disk_guid = GUID::random()?;
 
 				// Primary table
 				let mut gpt = GPT {
@@ -760,11 +827,8 @@ impl PartitionTableType {
 				};
 				gpt.signature.copy_from_slice(GPT_SIGNATURE);
 
-				let parts: Vec<(u64, GPTEntry)> = partitions.iter()
-					.enumerate()
-					.map(|(i, p)| {
-						let off = 1024 + i as u64 * gpt.entry_size as u64;
-
+				let parts: Vec<GPTEntry> = partitions.iter()
+					.map(|p| {
 						let partition_type = match p.part_type {
 							PartitionType::GPT(i) => i,
 							_ => panic!(),
@@ -779,53 +843,18 @@ impl PartitionTableType {
 							name: [0; 72], // TODO
 						};
 
-						(off, entry)
+						entry
 					})
 					.collect();
-
 				// TODO compute partitions checksum
 				// TODO compute header checksum
 
-				for (off, entry) in parts.iter() {
-					let entry_slice = unsafe {
-						slice::from_raw_parts(
-							&entry as *const _ as *const _, size_of::<GPTEntry>()
-						)
-					};
-					dev.seek(SeekFrom::Start(*off))?;
-					dev.write_all(entry_slice)?;
-				}
-
-				let table_slice = unsafe {
-					slice::from_raw_parts(
-						&gpt as *const _ as *const _, size_of::<GPT>()
-					)
-				};
-				dev.seek(SeekFrom::Start(1024))?;
-				dev.write_all(table_slice)?;
+				Self::write_gpt(dev, sectors_count, 1, &gpt, &parts)?;
 
 				// Alternate table
-				let mut alternate_gpt = GPT {
-					signature: [0; 8],
-					revision: 0, // TODO
-					hdr_size: size_of::<GPT>() as _,
-					checksum: 0, // TODO
-					reserved: 0,
-					hdr_lba: -1,
-					alternate_hdr_lba: 1,
-					first_usable: 34,
-					last_usable: -34,
-					disk_guid,
-					entries_start: -33,
-					entries_number: partitions.len() as _,
-					entry_size: size_of::<GPTEntry>() as _,
-					entries_checksum: 0, // TODO
-				};
-				alternate_gpt.signature.copy_from_slice(GPT_SIGNATURE);
-				// TODO compute partitions checksum
-				// TODO compute header checksum
-
-				// TODO write table
+				gpt.alternate_hdr_lba = 1;
+				gpt.entries_start = -33;
+				Self::write_gpt(dev, sectors_count, -1, &gpt, &parts)?;
 
 				Ok(())
 			}
@@ -959,7 +988,9 @@ impl PartitionTable {
 	/// - `path` is the path to the device.
 	/// - `sectors_count` is the number of sectors on the device.
 	pub fn write(&self, path: &Path, sectors_count: u64) -> io::Result<()> {
-		let mut file = File::open(path)?;
+		let mut file = OpenOptions::new()
+			.write(true)
+			.open(path)?;
 		self.table_type.write(&mut file, &self.partitions, sectors_count)
 	}
 
