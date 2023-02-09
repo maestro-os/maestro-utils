@@ -812,7 +812,7 @@ impl PartitionTableType {
 
 				// Primary table
 				let mut gpt = GPT {
-					signature: GPT_SIGNATURE,
+					signature: [0; 8],
 					revision: 0, // TODO
 					hdr_size: size_of::<GPT>() as _,
 					checksum: 0,
