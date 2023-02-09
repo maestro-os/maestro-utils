@@ -49,7 +49,7 @@ fn translate_lba(lba: i64, storage_size: u64) -> Option<u64> {
 
 /// Type representing a Globally Unique IDentifier.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-#[repr(C)]
+#[repr(C, packed)]
 pub struct GUID(pub [u8; 16]);
 
 impl TryFrom<&str> for GUID {
@@ -167,7 +167,7 @@ struct GPTEntry {
 	/// Entry's attributes.
 	attributes: u64,
 	/// The partition's name.
-	name: [u16; 72],
+	name: [u16; 36],
 }
 
 /// Structure representing the GPT header.
@@ -832,7 +832,7 @@ impl PartitionTableType {
 				// Write protective MBR
 				Self::MBR.write(dev, &[Partition {
 					start: 1,
-					size: min(u32::MAX as u64, sectors_count) - 1,
+					size: min(u32::MAX as u64, sectors_count - 1),
 
 					part_type: PartitionType::MBR(0xee),
 
@@ -857,7 +857,7 @@ impl PartitionTableType {
 					disk_guid: disk_guid.clone(),
 					entries_start: 2,
 					entries_number: partitions.len() as _,
-					entry_size: size_of::<GPTEntry>() as _,
+					entry_size: 128,
 					entries_checksum: 0,
 				};
 				gpt.signature.copy_from_slice(GPT_SIGNATURE);
@@ -875,7 +875,7 @@ impl PartitionTableType {
 							start: p.start as _,
 							end: (p.start + p.size) as _,
 							attributes: 0, // TODO
-							name: [0; 72], // TODO
+							name: [0; 36], // TODO
 						};
 
 						entry
