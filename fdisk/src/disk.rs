@@ -74,7 +74,7 @@ impl Disk {
 			return Ok(None);
 		};
 
-		let partition_table = PartitionTable::read(&dev_path)?;
+		let partition_table = PartitionTable::read(&dev_path, size)?;
 
 		Ok(Some(Self {
 			dev_path,

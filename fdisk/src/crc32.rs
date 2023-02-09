@@ -25,38 +25,17 @@ pub fn compute_lookuptable(table: &mut [u32; 256], polynom: u32) {
 
 		i = i >> 1;
 	}
-
-	// Big endian
-	/*let mut i = 1;
-	let mut crc = 0x80000000;
-
-	while i < table.len() {
-		if crc & 0x80000000 != 0 {
-			crc = (crc << 1) ^ polynom;
-		} else {
-			crc = crc << 1;
-		}
-
-		for j in 0..i {
-			table[i ^ j] = crc ^ table[j];
-		}
-
-		i = i << 1;
-	}*/
 }
 
 /// Computes the CRC32 checksum on the given data `data` with the given table
 /// `table` for the wanted generator polynomial.
 pub fn compute(data: &[u8], table: &[u32; 256]) -> u32 {
 	// Sarwate algorithm
-	let mut crc = !(0 as u32);
-	//let mut crc = 0 as u32;
+	let mut crc = !0u32;
 
 	for b in data {
-		let i = ((crc & 0xff) ^ (*b as u32)) as usize;
+		let i = ((crc as usize) ^ (*b as usize)) & 0xff;
 		crc = table[i] ^ (crc >> 8);
-		/*let i = ((crc ^ ((*b as u32) << 24)) >> 24) as usize;
-		crc = table[i] ^ (crc << 8);*/
 	}
 
 	!crc
