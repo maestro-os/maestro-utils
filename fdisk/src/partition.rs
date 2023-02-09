@@ -50,7 +50,7 @@ fn translate_lba(lba: i64, storage_size: u64) -> Option<u64> {
 /// Type representing a Globally Unique IDentifier.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
-pub struct GUID([u8; 16]);
+pub struct GUID(pub [u8; 16]);
 
 impl TryFrom<&str> for GUID {
 	type Error = ();
