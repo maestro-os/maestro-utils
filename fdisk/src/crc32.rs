@@ -59,7 +59,7 @@ pub fn compute(data: &[u8], table: &[u32; 256]) -> u32 {
 		crc = table[i] ^ (crc << 8);*/
 	}
 
-	crc
+	!crc
 }
 
 #[cfg(test)]

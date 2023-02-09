@@ -19,7 +19,7 @@ use utils::prompt::prompt;
 // TODO adapt to disks whose sector size is different than 512
 
 /// The signature of the MBR partition table.
-const MBR_SIGNATURE: u16 = 0x55aa;
+const MBR_SIGNATURE: u16 = 0xaa55;
 
 /// The signature in the GPT header.
 const GPT_SIGNATURE: &[u8] = b"EFI PART";
@@ -713,14 +713,17 @@ impl PartitionTableType {
 		hdr: &GPT,
 		parts: &[GPTEntry]
 	) -> io::Result<()> {
-		let hdr_off = translate_lba(hdr_off, storage_size).unwrap();
+		let sector_size = 512; // TODO
+
+		let hdr_off = translate_lba(hdr_off, storage_size).unwrap() * sector_size;
+		let entries_off = translate_lba(hdr.entries_start, storage_size).unwrap() * sector_size;
 
 		for (i, entry) in parts.iter().enumerate() {
-			let off = hdr_off + i as u64 * size_of::<GPTEntry>() as u64;
+			let off = entries_off + i as u64 * size_of::<GPTEntry>() as u64;
 
 			let entry_slice = unsafe {
 				slice::from_raw_parts(
-					&entry as *const _ as *const _, size_of::<GPTEntry>()
+					entry as *const _ as *const _, size_of::<GPTEntry>()
 				)
 			};
 			dev.seek(SeekFrom::Start(off))?;
@@ -729,10 +732,10 @@ impl PartitionTableType {
 
 		let hdr_slice = unsafe {
 			slice::from_raw_parts(
-				&hdr as *const _ as *const _, size_of::<GPT>()
+				hdr as *const _ as *const _, size_of::<GPT>()
 			)
 		};
-		dev.seek(SeekFrom::Start(1024))?;
+		dev.seek(SeekFrom::Start(hdr_off))?;
 		dev.write_all(hdr_slice)?;
 
 		Ok(())
@@ -767,12 +770,12 @@ impl PartitionTableType {
 
 				for (i, p) in partitions.iter().enumerate() {
 					let partition_type = match p.part_type {
-						PartitionType::MBR(i) => i,
+						PartitionType::MBR(t) => t,
 						_ => panic!(),
 					};
 
 					mbr.partitions[i] = MBRPartition {
-						attrs: 1 << 7,
+						attrs: 0,
 						chs_start: [0; 3],
 						partition_type,
 						chs_end: [0; 3],
@@ -783,7 +786,8 @@ impl PartitionTableType {
 
 				let slice = unsafe {
 					slice::from_raw_parts(
-						&mbr as *const _ as *const _, size_of::<MBRTable>() - mbr.boot.len()
+						(&mbr as *const _ as *const u8).add(mbr.boot.len()),
+						size_of::<MBRTable>() - mbr.boot.len()
 					)
 				};
 				dev.seek(SeekFrom::Start(mbr.boot.len() as _))?;
@@ -799,7 +803,7 @@ impl PartitionTableType {
 				// Write protective MBR
 				Self::MBR.write(dev, &[Partition {
 					start: 1,
-					size: min(u32::MAX as u64, sectors_count),
+					size: min(u32::MAX as u64, sectors_count) - 1,
 
 					part_type: PartitionType::MBR(0xee),
 
@@ -813,7 +817,7 @@ impl PartitionTableType {
 				// Primary table
 				let mut gpt = GPT {
 					signature: [0; 8],
-					revision: 0, // TODO
+					revision: 0x010000,
 					hdr_size: size_of::<GPT>() as _,
 					checksum: 0,
 					reserved: 0,
@@ -825,7 +829,7 @@ impl PartitionTableType {
 					entries_start: 2,
 					entries_number: partitions.len() as _,
 					entry_size: size_of::<GPTEntry>() as _,
-					entries_checksum: 0, // TODO
+					entries_checksum: 0,
 				};
 				gpt.signature.copy_from_slice(GPT_SIGNATURE);
 
@@ -858,18 +862,22 @@ impl PartitionTableType {
 						parts.len() * size_of::<GPTEntry>()
 					)
 				};
-				gpt.checksum = crc32::compute(parts_slice, &crc32_table);
+				gpt.entries_checksum = crc32::compute(parts_slice, &crc32_table);
 
 				let hdr_slice = unsafe {
 					slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<GPT>())
 				};
-				gpt.entries_checksum = crc32::compute(hdr_slice, &crc32_table);
+				gpt.checksum = crc32::compute(hdr_slice, &crc32_table);
 
 				Self::write_gpt(dev, sectors_count, 1, &gpt, &parts)?;
 
 				// Alternate table
 				gpt.alternate_hdr_lba = 1;
 				gpt.entries_start = -33;
+				let hdr_slice = unsafe {
+					slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<GPT>())
+				};
+				gpt.checksum = crc32::compute(hdr_slice, &crc32_table);
 				Self::write_gpt(dev, sectors_count, -1, &gpt, &parts)?;
 
 				Ok(())
