@@ -3,6 +3,7 @@
 use std::ffi::CStr;
 use std::fmt;
 use std::mem::size_of;
+use std::slice;
 use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -13,6 +14,13 @@ pub fn get_timestamp() -> Duration {
     SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.expect("System clock panic!")
+}
+
+/// Reinterprets the given reference as a slice.
+pub fn reinterpret<'a, T>(val: &'a T) -> &'a [u8] {
+	unsafe {
+		slice::from_raw_parts(val as *const _ as *const u8, size_of::<T>())
+	}
 }
 
 /// Returns the hostname of the system.

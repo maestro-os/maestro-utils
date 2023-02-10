@@ -68,8 +68,9 @@ pub trait FSFactory {
 fn main() {
 	let args = parse_args();
 
+	// TODO build factory according to arguments
 	let factories = HashMap::<&str, Box<dyn FSFactory>>::from([
-		("ext2", Box::new(ext2::Ext2Factory {}) as Box<dyn FSFactory>),
+		("ext2", Box::new(ext2::Ext2Factory::default()) as Box<dyn FSFactory>),
 	]);
 	let factory = factories.get(args.fs_type.as_str()).unwrap_or_else(|| {
 		eprintln!("{}: invalid filesystem type `{}`", args.prog, args.fs_type);
