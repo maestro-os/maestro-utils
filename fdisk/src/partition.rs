@@ -19,12 +19,12 @@ use utils::prompt::prompt;
 // TODO adapt to disks whose sector size is different than 512
 
 /// The signature of the MBR partition table.
-const MBR_SIGNATURE: u16 = 0x55aa;
+const MBR_SIGNATURE: u16 = 0xaa55;
 
 /// The signature in the GPT header.
 const GPT_SIGNATURE: &[u8] = b"EFI PART";
 /// The polynom used in the computation of the CRC32 checksum.
-const GPT_CHECKSUM_POLYNOM: u32 = 0x4c11db7;
+const GPT_CHECKSUM_POLYNOM: u32 = 0xedb88320;
 
 /// Translates the given LBA value `lba` into a positive LBA value.
 ///
@@ -49,8 +49,8 @@ fn translate_lba(lba: i64, storage_size: u64) -> Option<u64> {
 
 /// Type representing a Globally Unique IDentifier.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-#[repr(C)]
-pub struct GUID([u8; 16]);
+#[repr(C, packed)]
+pub struct GUID(pub [u8; 16]);
 
 impl TryFrom<&str> for GUID {
 	type Error = ();
@@ -167,10 +167,11 @@ struct GPTEntry {
 	/// Entry's attributes.
 	attributes: u64,
 	/// The partition's name.
-	name: [u16; 72],
+	name: [u16; 36],
 }
 
 /// Structure representing the GPT header.
+#[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct GPT {
 	/// The header's signature.
@@ -631,7 +632,11 @@ impl PartitionTableType {
 	}
 
 	/// Reads partitions from the storage device represented by `dev` and returns the list.
-	pub fn read(&self, dev: &mut File) -> io::Result<Option<Vec<Partition>>> {
+	pub fn read(
+		&self,
+		dev: &mut File,
+		sectors_count: u64
+	) -> io::Result<Option<Vec<Partition>>> {
 		match self {
 			Self::MBR => {
 				let mut buff: [u8; size_of::<MBRTable>()] = [0; size_of::<MBRTable>()];
@@ -646,7 +651,7 @@ impl PartitionTableType {
 				}
 
 				let parts = mbr.partitions.iter()
-					.filter(|p| p.is_active())
+					.filter(|p| p.sectors_count > 0)
 					.map(|p| Partition {
 						start: p.lba_start as _,
 						size: p.sectors_count as _,
@@ -655,7 +660,7 @@ impl PartitionTableType {
 
 						uuid: None,
 
-						bootable: true,
+						bootable: p.is_active(),
 					})
 					.collect();
 				Ok(Some(parts))
@@ -666,26 +671,50 @@ impl PartitionTableType {
 				dev.seek(SeekFrom::Start(512))?;
 				dev.read_exact(&mut buff)?;
 
-				let gpt = unsafe {
-					&*(buff.as_ptr() as *const GPT)
+				let hdr = unsafe {
+					&mut *(buff.as_mut_ptr() as *mut GPT)
 				};
-				if gpt.signature != GPT_SIGNATURE {
+				// Check signature
+				if hdr.signature != GPT_SIGNATURE {
 					return Ok(None);
 				}
-				// TODO check checksum
+
+				let mut crc32_table: [u32; 256] = [0; 256];
+				crc32::compute_lookuptable(&mut crc32_table, GPT_CHECKSUM_POLYNOM);
+
+				// Check header checksum
+				let checksum = hdr.checksum;
+				hdr.checksum = 0;
+				// TODO computation must be done with the size of the header (dynamic)
+				if crc32::compute(&buff, &crc32_table) != checksum {
+					// TODO invalid table
+					todo!();
+				}
+
+				// TODO check entries checksum
+				// TODO if entries checksum is invalid, use alternate table
 
 				let mut parts = Vec::new();
 
-				for i in 0..gpt.entries_number {
-					let off = 1024 + i * gpt.entry_size;
+				let sector_size = 512; // TODO
+				let entries_off = translate_lba(hdr.entries_start, sector_size).unwrap()
+					* sector_size;
 
-					let mut buff = vec![0; gpt.entry_size as usize];
+				for i in 0..hdr.entries_number {
+					let off = entries_off + i as u64 * hdr.entry_size as u64;
+
+					let mut buff = vec![0; hdr.entry_size as usize];
 					dev.seek(SeekFrom::Start(off as _))?;
 					dev.read_exact(&mut buff)?;
 
 					let entry = unsafe {
 						&*(buff.as_ptr() as *const GPTEntry)
 					};
+
+					// If entry is unused, skip
+					if entry.guid.0.iter().all(|i| *i == 0) {
+						continue;
+					}
 
 					// TODO handle negative lba
 					parts.push(Partition {
@@ -713,14 +742,17 @@ impl PartitionTableType {
 		hdr: &GPT,
 		parts: &[GPTEntry]
 	) -> io::Result<()> {
-		let hdr_off = translate_lba(hdr_off, storage_size).unwrap();
+		let sector_size = 512; // TODO
+
+		let hdr_off = translate_lba(hdr_off, storage_size).unwrap() * sector_size;
+		let entries_off = translate_lba(hdr.entries_start, storage_size).unwrap() * sector_size;
 
 		for (i, entry) in parts.iter().enumerate() {
-			let off = hdr_off + i as u64 * size_of::<GPTEntry>() as u64;
+			let off = entries_off + i as u64 * size_of::<GPTEntry>() as u64;
 
 			let entry_slice = unsafe {
 				slice::from_raw_parts(
-					&entry as *const _ as *const _, size_of::<GPTEntry>()
+					entry as *const _ as *const _, size_of::<GPTEntry>()
 				)
 			};
 			dev.seek(SeekFrom::Start(off))?;
@@ -729,10 +761,10 @@ impl PartitionTableType {
 
 		let hdr_slice = unsafe {
 			slice::from_raw_parts(
-				&hdr as *const _ as *const _, size_of::<GPT>()
+				hdr as *const _ as *const _, size_of::<GPT>()
 			)
 		};
-		dev.seek(SeekFrom::Start(1024))?;
+		dev.seek(SeekFrom::Start(hdr_off))?;
 		dev.write_all(hdr_slice)?;
 
 		Ok(())
@@ -767,12 +799,12 @@ impl PartitionTableType {
 
 				for (i, p) in partitions.iter().enumerate() {
 					let partition_type = match p.part_type {
-						PartitionType::MBR(i) => i,
+						PartitionType::MBR(t) => t,
 						_ => panic!(),
 					};
 
 					mbr.partitions[i] = MBRPartition {
-						attrs: 1 << 7,
+						attrs: 0,
 						chs_start: [0; 3],
 						partition_type,
 						chs_end: [0; 3],
@@ -783,7 +815,8 @@ impl PartitionTableType {
 
 				let slice = unsafe {
 					slice::from_raw_parts(
-						&mbr as *const _ as *const _, size_of::<MBRTable>() - mbr.boot.len()
+						(&mbr as *const _ as *const u8).add(mbr.boot.len()),
+						size_of::<MBRTable>() - mbr.boot.len()
 					)
 				};
 				dev.seek(SeekFrom::Start(mbr.boot.len() as _))?;
@@ -799,7 +832,7 @@ impl PartitionTableType {
 				// Write protective MBR
 				Self::MBR.write(dev, &[Partition {
 					start: 1,
-					size: min(u32::MAX as u64, sectors_count),
+					size: min(u32::MAX as u64, sectors_count - 1),
 
 					part_type: PartitionType::MBR(0xee),
 
@@ -813,7 +846,7 @@ impl PartitionTableType {
 				// Primary table
 				let mut gpt = GPT {
 					signature: [0; 8],
-					revision: 0, // TODO
+					revision: 0x010000,
 					hdr_size: size_of::<GPT>() as _,
 					checksum: 0,
 					reserved: 0,
@@ -824,8 +857,8 @@ impl PartitionTableType {
 					disk_guid: disk_guid.clone(),
 					entries_start: 2,
 					entries_number: partitions.len() as _,
-					entry_size: size_of::<GPTEntry>() as _,
-					entries_checksum: 0, // TODO
+					entry_size: 128,
+					entries_checksum: 0,
 				};
 				gpt.signature.copy_from_slice(GPT_SIGNATURE);
 
@@ -842,7 +875,7 @@ impl PartitionTableType {
 							start: p.start as _,
 							end: (p.start + p.size) as _,
 							attributes: 0, // TODO
-							name: [0; 72], // TODO
+							name: [0; 36], // TODO
 						};
 
 						entry
@@ -858,18 +891,22 @@ impl PartitionTableType {
 						parts.len() * size_of::<GPTEntry>()
 					)
 				};
-				gpt.checksum = crc32::compute(parts_slice, &crc32_table);
+				gpt.entries_checksum = crc32::compute(parts_slice, &crc32_table);
 
 				let hdr_slice = unsafe {
 					slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<GPT>())
 				};
-				gpt.entries_checksum = crc32::compute(hdr_slice, &crc32_table);
+				gpt.checksum = crc32::compute(hdr_slice, &crc32_table);
 
 				Self::write_gpt(dev, sectors_count, 1, &gpt, &parts)?;
 
 				// Alternate table
 				gpt.alternate_hdr_lba = 1;
 				gpt.entries_start = -33;
+				let hdr_slice = unsafe {
+					slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<GPT>())
+				};
+				gpt.checksum = crc32::compute(hdr_slice, &crc32_table);
 				Self::write_gpt(dev, sectors_count, -1, &gpt, &parts)?;
 
 				Ok(())
@@ -975,8 +1012,12 @@ pub struct PartitionTable {
 impl PartitionTable {
 	/// Reads the partition table from the disk device at the given path.
 	///
+	/// Arguments:
+	/// - `path` is the path to the device.
+	/// - `sectors_count` is the number of sectors on the device.
+	///
 	/// If the table is invalid, the function returns an empty MBR table.
-	pub fn read(path: &Path) -> io::Result<Self> {
+	pub fn read(path: &Path, sectors_count: u64) -> io::Result<Self> {
 		let mut file = File::open(path)?;
 
 		let partition_types = vec![
@@ -985,7 +1026,7 @@ impl PartitionTable {
 		];
 
 		for t in partition_types {
-			if let Some(partitions) = t.read(&mut file)? {
+			if let Some(partitions) = t.read(&mut file, sectors_count)? {
 				return Ok(PartitionTable {
 					table_type: t,
 					partitions,
