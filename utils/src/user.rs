@@ -27,6 +27,13 @@ extern "C" {
     pub fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
 }
 
+/// Hashes the given clear password and returns it with a generated salt, in the format
+/// required for the shadow file.
+pub fn hash_password(pass: &str) -> String {
+	// TODO generate a salt and hash the password
+	todo!();
+}
+
 // TODO For each files, use a backup file with the same path but with `-` appended at the end
 
 /// Structure representing a user. This entry is present in the passwd file.
@@ -48,13 +55,6 @@ pub struct User {
 }
 
 impl User {
-	/// Hashes the given clear password and returns it with a generated salt, in the format
-	/// required for the shadow file.
-	pub fn hash_password(pass: &str) -> String {
-		// TODO generate a salt and hash the password
-		todo!();
-	}
-
 	/// Check the given (not hashed) password `pass` against the current entry.
 	///
 	/// If the function returns None, the callee must use the shadow entry.
@@ -82,19 +82,19 @@ pub struct Shadow {
 	/// The date of the last password change in number of days since the Unix Epoch.
 	pub last_change: u32,
 	/// The minimum number of days to wait before the user becomes usable.
-	pub minimum_age: u32,
+	pub minimum_age: Option<u32>,
 	/// The maximum number of days to the password is valid. If this delay is exceeded, the user
 	/// will be asked to change her password next time she logs.
-	pub maximum_age: u32,
+	pub maximum_age: Option<u32>,
 	/// The number of days before the password expires during which the user will be warned to
 	/// change her password.
-	pub warning_period: u32,
+	pub warning_period: Option<u32>,
 	/// The number of days after password expiration during which the user can still use her
 	/// password. Passed this delay, she will have to contact her system administrator.
-	pub inactivity_period: u32,
+	pub inactivity_period: Option<u32>,
 	/// The number of days after the Unix Epoch after which login to the user account will be
 	/// denied.
-	pub account_expiration: u32,
+	pub account_expiration: Option<u32>,
 	/// Reserved field.
 	pub reserved: String,
 }
@@ -216,11 +216,11 @@ pub fn read_shadow(path: &Path) -> Result<Vec<Shadow>, Box<dyn Error>> {
 				login_name: data[0].clone(),
 				password: data[1].clone(),
 				last_change: data[2].parse::<_>().unwrap_or(0),
-				minimum_age: data[3].parse::<_>().unwrap_or(0),
-				maximum_age: data[4].parse::<_>().unwrap_or(0),
-				warning_period: data[5].parse::<_>().unwrap_or(0),
-				inactivity_period: data[6].parse::<_>().unwrap_or(0),
-				account_expiration: data[7].parse::<_>().unwrap_or(0),
+				minimum_age: data[3].parse::<_>().ok(),
+				maximum_age: data[4].parse::<_>().ok(),
+				warning_period: data[5].parse::<_>().ok(),
+				inactivity_period: data[6].parse::<_>().ok(),
+				account_expiration: data[7].parse::<_>().ok(),
 				reserved: data[8].clone(),
 			})
 		})
@@ -237,11 +237,11 @@ pub fn write_shadow(path: &Path, entries: &[Shadow]) -> io::Result<()> {
 				e.login_name.clone().into(),
 				e.password.clone().into(),
 				format!("{}", e.last_change).into(),
-				format!("{}", e.minimum_age).into(),
-				format!("{}", e.maximum_age).into(),
-				format!("{}", e.warning_period).into(),
-				format!("{}", e.inactivity_period).into(),
-				format!("{}", e.account_expiration).into(),
+				e.minimum_age.map(|v| format!("{}", v)).unwrap_or("".to_owned()).into(),
+				e.maximum_age.map(|v| format!("{}", v)).unwrap_or("".to_owned()).into(),
+				e.warning_period.map(|v| format!("{}", v)).unwrap_or("".to_owned()).into(),
+				e.inactivity_period.map(|v| format!("{}", v)).unwrap_or("".to_owned()).into(),
+				e.account_expiration.map(|v| format!("{}", v)).unwrap_or("".to_owned()).into(),
 				e.reserved.clone().into()
 			]
 		})

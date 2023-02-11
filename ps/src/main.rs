@@ -9,6 +9,7 @@ use format::FormatParser;
 use process::Process;
 use process::ProcessIterator;
 use std::env;
+use std::path::PathBuf;
 use std::process::exit;
 
 // TODO Implement every arguments
@@ -95,8 +96,10 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 	let mut default_format = true;
 
 	// Reading users and groups lists
-	let users = utils::user::read_passwd(utils::user::PASSWD_PATH).unwrap_or(vec![]);
-	let groups = utils::user::read_group(utils::user::GROUP_PATH).unwrap_or(vec![]);
+	let users = utils::user::read_passwd(&PathBuf::from(utils::user::PASSWD_PATH))
+		.unwrap_or(vec![]);
+	let groups = utils::user::read_group(&PathBuf::from(utils::user::GROUP_PATH))
+		.unwrap_or(vec![]);
 
 	// TODO -l and -f
 	let mut args = env::args().skip(1);

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::ffi::OsString;
+use std::path::PathBuf;
 use std::process::Command;
 use std::process::exit;
 use std::time::Duration;
@@ -61,11 +62,11 @@ fn main() {
 		let pass = prompt(None, true).unwrap_or_else(|| exit(1));
 
 		// Reading users lists
-		let passwd = user::read_passwd(user::PASSWD_PATH).unwrap_or_else(| _ | {
+		let passwd = user::read_passwd(&PathBuf::from(user::PASSWD_PATH)).unwrap_or_else(| _ | {
 			eprintln!("Cannot read passwd file!");
 			exit(1);
 		});
-		let shadow = user::read_shadow(user::SHADOW_PATH).ok();
+		let shadow = user::read_shadow(&PathBuf::from(user::SHADOW_PATH)).ok();
 
 		// Getting user from prompted login
 		let user_entry = passwd.into_iter()
