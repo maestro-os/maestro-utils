@@ -3,10 +3,14 @@
 
 use std::error::Error;
 use std::ffi::CString;
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 use std::path::PathBuf;
 
 /// The path to the passwd file.
@@ -113,7 +117,7 @@ pub struct Group {
 }
 
 /// Reads and parses the file at path `path`.
-fn read(path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+fn read(path: &Path) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
 	let file = File::open(path)?;
 	let mut data = vec![];
 
@@ -125,31 +129,28 @@ fn read(path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
 }
 
 /// Writes the file at path `path` with data `data`.
-fn write(path: &str, data: &Vec<Vec<String>>) -> Result<(), Box<dyn Error>> {
+fn write(path: &Path, data: &[Vec<OsString>]) -> io::Result<()> {
 	let mut file = File::open(path)?;
-	let mut content = String::new();
 
 	for line in data {
 		for (i, elem) in line.iter().enumerate() {
-			if elem.contains(':') {
-				return Err("entry cannot contain character `:`".into());
-			}
+			file.write_all(elem.as_bytes())?;
 
-			content += elem;
 			if i + 1 < line.len() {
-				content += ":";
+				file.write_all(b":")?;
 			}
 		}
+
+		file.write_all(b"\n")?;
 	}
 
-	file.write(content.as_bytes())?;
 	Ok(())
 }
 
 /// Reads the passwd file.
 ///
 /// `path` is the path to the file.
-pub fn read_passwd(path: &str) -> Result<Vec<User>, Box<dyn Error>> {
+pub fn read_passwd(path: &Path) -> Result<Vec<User>, Box<dyn Error>> {
 	read(path)?
 		.into_iter()
 		.enumerate()
@@ -171,10 +172,31 @@ pub fn read_passwd(path: &str) -> Result<Vec<User>, Box<dyn Error>> {
 		.collect()
 }
 
+/// Writes the passwd file.
+///
+/// `path` is the path to the file.
+pub fn write_passwd(path: &Path, entries: &[User]) -> io::Result<()> {
+	let entries: Vec<Vec<OsString>> = entries.iter()
+		.map(|e| {
+			vec![
+				e.login_name.clone().into(),
+				e.password.clone().into(),
+				format!("{}", e.uid).into(),
+				format!("{}", e.gid).into(),
+				e.comment.clone().into(),
+				e.home.clone().into(),
+				e.interpreter.clone().into()
+			]
+		})
+		.collect();
+
+	write(path, &entries)
+}
+
 /// Reads the shadow file.
 ///
 /// `path` is the path to the file.
-pub fn read_shadow(path: &str) -> Result<Vec<Shadow>, Box<dyn Error>> {
+pub fn read_shadow(path: &Path) -> Result<Vec<Shadow>, Box<dyn Error>> {
 	read(path)?
 		.into_iter()
 		.enumerate()
@@ -198,10 +220,33 @@ pub fn read_shadow(path: &str) -> Result<Vec<Shadow>, Box<dyn Error>> {
 		.collect()
 }
 
+/// Writes the shadow file.
+///
+/// `path` is the path to the file.
+pub fn write_shadow(path: &Path, entries: &[Shadow]) -> io::Result<()> {
+	let entries: Vec<Vec<OsString>> = entries.iter()
+		.map(|e| {
+			vec![
+				e.login_name.clone().into(),
+				e.password.clone().into(),
+				format!("{}", e.last_change).into(),
+				format!("{}", e.minimum_age).into(),
+				format!("{}", e.maximum_age).into(),
+				format!("{}", e.warning_period).into(),
+				format!("{}", e.inactivity_period).into(),
+				format!("{}", e.account_expiration).into(),
+				e.reserved.clone().into()
+			]
+		})
+		.collect();
+
+	write(path, &entries)
+}
+
 /// Reads the group file.
 ///
 /// `path` is the path to the file.
-pub fn read_group(path: &str) -> Result<Vec<Group>, Box<dyn Error>> {
+pub fn read_group(path: &Path) -> Result<Vec<Group>, Box<dyn Error>> {
 	read(path)?
 		.into_iter()
 		.enumerate()
@@ -218,6 +263,24 @@ pub fn read_group(path: &str) -> Result<Vec<Group>, Box<dyn Error>> {
 			})
 		})
 		.collect()
+}
+
+/// Writes the group file.
+///
+/// `path` is the path to the file.
+pub fn write_group(path: &Path, entries: &[Group]) -> io::Result<()> {
+	let entries: Vec<Vec<OsString>> = entries.iter()
+		.map(|e| {
+			vec![
+				e.group_name.clone().into(),
+				e.password.clone().into(),
+				format!("{}", e.gid).into(),
+				e.users_list.clone().into()
+			]
+		})
+		.collect();
+
+	write(path, &entries)
 }
 
 /// Sets the current user.
