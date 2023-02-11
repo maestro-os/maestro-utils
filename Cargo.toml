@@ -5,6 +5,7 @@ members = [
 	"insmod",
 	"login",
 	"lsmod",
+	"nologin",
 	"powerctl",
 	"ps",
 	"rmmod",

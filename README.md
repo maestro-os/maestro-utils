@@ -10,6 +10,8 @@ maestro-utils provides utility commands for the Maestro operating system:
 	- groupadd
 	- groupdel
 	- groupmod
+	- login
+	- nologin
 - Kernel utilities:
 	- dmesg
 	- mount
