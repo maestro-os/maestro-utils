@@ -7,10 +7,12 @@ members = [
 	"login",
 	"lsmod",
 	"mkfs",
+	"mount",
 	"powerctl",
 	"ps",
 	"rmmod",
 	"su",
+	"umount",
 	"usrgrp",
 	"utils",
 ]
