@@ -1,12 +1,15 @@
 //! Module handling the `ext2` filesystem.
 
 use crate::FSFactory;
+use std::cmp::max;
 use std::cmp::min;
 use std::fs::File;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
 use std::io;
+use std::mem::size_of;
+use utils::util::ceil_division;
 use utils::util::get_timestamp;
 use utils::util::log2;
 use utils::util::reinterpret;
@@ -165,6 +168,76 @@ struct Superblock {
 	_padding: [u8; 788],
 }
 
+/// Structure representing a block group descriptor to be stored into the Block Group Descriptor
+/// Table (BGDT).
+#[repr(C, packed)]
+struct BlockGroupDescriptor {
+	/// The block address of the block usage bitmap.
+	block_usage_bitmap_addr: u32,
+	/// The block address of the inode usage bitmap.
+	inode_usage_bitmap_addr: u32,
+	/// Starting block address of inode table.
+	inode_table_start_addr: u32,
+	/// Number of unallocated blocks in group.
+	unallocated_blocks_number: u16,
+	/// Number of unallocated inodes in group.
+	unallocated_inodes_number: u16,
+	/// Number of directories in group.
+	directories_number: u16,
+
+	/// Structure padding.
+	_padding: [u8; 14],
+}
+
+/// An inode represents a file in the filesystem. The name of the file is not
+/// included in the inode but in the directory entry associated with it since
+/// several entries can refer to the same inode (hard links).
+#[repr(C, packed)]
+struct INode {
+	/// Type and permissions.
+	mode: u16,
+	/// User ID.
+	uid: u16,
+	/// Lower 32 bits of size in bytes.
+	size_low: u32,
+	/// Timestamp of the last modification of the metadata.
+	ctime: u32,
+	/// Timestamp of the last modification of the content.
+	mtime: u32,
+	/// Timestamp of the last access.
+	atime: u32,
+	/// Timestamp of the deletion.
+	dtime: u32,
+	/// Group ID.
+	gid: u16,
+	/// The number of hard links to this inode.
+	hard_links_count: u16,
+	/// The number of sectors used by this inode.
+	used_sectors: u32,
+	/// INode flags.
+	flags: u32,
+	/// OS-specific value.
+	os_specific_0: u32,
+	/// Direct block pointers.
+	direct_block_ptrs: [u32; 12],
+	/// Simply indirect block pointer.
+	singly_indirect_block_ptr: u32,
+	/// Doubly indirect block pointer.
+	doubly_indirect_block_ptr: u32,
+	/// Triply indirect block pointer.
+	triply_indirect_block_ptr: u32,
+	/// Generation number.
+	generation: u32,
+	/// The file's ACL.
+	extended_attributes_block: u32,
+	/// Higher 32 bits of size in bytes.
+	size_high: u32,
+	/// Block address of fragment.
+	fragment_addr: u32,
+	/// OS-specific value.
+	os_specific_1: [u8; 12],
+}
+
 /// A factory to create an `ext2` filesystem.
 #[derive(Default)]
 pub struct Ext2Factory {
@@ -195,6 +268,8 @@ impl FSFactory for Ext2Factory {
 	}
 
 	fn create(&self, dev: &mut File) -> io::Result<()> {
+		let timestamp = get_timestamp().as_secs() as u32;
+
 		let len = match self.len {
 			None => {
 				// TODO get from device file
@@ -265,7 +340,7 @@ impl FSFactory for Ext2Factory {
 			fs_state: FS_STATE_CLEAN,
 			error_action: ERR_ACTION_READ_ONLY,
 			minor_version: 1,
-			last_fsck_timestamp: get_timestamp().as_secs() as _,
+			last_fsck_timestamp: timestamp,
 			fsck_interval: DEFAULT_FSCK_INTERVAL, // TODO take from param
 			os_id: 0,
 			major_version: 1,
@@ -293,8 +368,79 @@ impl FSFactory for Ext2Factory {
 			_padding: [0; 788],
 		};
 
-		// TODO
+		let bgdt_off = (SUPERBLOCK_OFFSET / block_size) + 1;
+		let bgdt_size = ceil_division(
+			groups_count as u64 * size_of::<BlockGroupDescriptor>() as u64,
+			block_size
+		);
+		let bgdt_end = bgdt_off + bgdt_size as u64;
 
+		let block_usage_bitmap_size = ceil_division(blocks_per_group, (block_size * 8) as _);
+		let inode_usage_bitmap_size = ceil_division(inodes_per_group, (block_size * 8) as _);
+		let inodes_table_size = ceil_division(inodes_per_group * superblock.inode_size as u32, (block_size * 8) as _);
+
+		// Write block groups
+		for i in 0..groups_count {
+			let metadata_off = max(i * blocks_per_group, bgdt_end as u32);
+			let metadata_size = block_usage_bitmap_size + inode_usage_bitmap_size
+				+ inodes_table_size;
+
+			let block_usage_bitmap_addr = metadata_off;
+			let inode_usage_bitmap_addr = metadata_off + block_usage_bitmap_size;
+			let inode_table_start_addr = metadata_off + block_usage_bitmap_size
+				+ inode_usage_bitmap_size;
+
+			let bgd = BlockGroupDescriptor {
+				block_usage_bitmap_addr,
+				inode_usage_bitmap_addr,
+				inode_table_start_addr,
+				unallocated_blocks_number: blocks_per_group as _,
+				unallocated_inodes_number: inodes_per_group as _,
+				directories_number: 0,
+
+				_padding: [0; 14],
+			};
+
+			let off = bgdt_off + i as u64 * size_of::<BlockGroupDescriptor>() as u64;
+			dev.seek(SeekFrom::Start(off))?;
+			dev.write(reinterpret(&bgd))?;
+		}
+
+		// TODO mark blocks as used, from the first to the end of the block group descriptor table
+
+		// TODO mark blocks as used for every bitmaps
+
+		// TODO mark inodes as used up to the first non reserved (excluded)
+
+		// Create root directory
+		let root_dir = INode {
+			mode: 0x4000 | 0o755,
+			uid: 0,
+			size_low: 0,
+			ctime: timestamp,
+			mtime: timestamp,
+			atime: timestamp,
+			dtime: 0,
+			gid: 0,
+			hard_links_count: 1,
+			used_sectors: 0,
+			flags: 0,
+			os_specific_0: 0,
+			direct_block_ptrs: [0; 12],
+			singly_indirect_block_ptr: 0,
+			doubly_indirect_block_ptr: 0,
+			triply_indirect_block_ptr: 0,
+			generation: 0,
+			extended_attributes_block: 0,
+			size_high: 0,
+			fragment_addr: 0,
+			os_specific_1: [0; 12],
+		};
+		let root_inode_off = 0; // TODO
+		dev.seek(SeekFrom::Start(root_inode_off))?;
+		dev.write(reinterpret(&root_dir))?;
+
+		// Write superblock
 		dev.seek(SeekFrom::Start(SUPERBLOCK_OFFSET))?;
 		dev.write(reinterpret(&superblock))?;
 

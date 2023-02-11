@@ -3,6 +3,9 @@
 use std::ffi::CStr;
 use std::fmt;
 use std::mem::size_of;
+use std::ops::Add;
+use std::ops::Div;
+use std::ops::Rem;
 use std::slice;
 use std::thread;
 use std::time::Duration;
@@ -47,6 +50,19 @@ pub fn exec_wait<T, F: FnOnce() -> T>(d: Duration, f: F) -> T {
 	}
 
 	result
+}
+
+/// Computes ceil(n0 / n1) without using floating point numbers.
+#[inline(always)]
+pub fn ceil_division<T>(n0: T, n1: T) -> T
+where
+	T: From<u8> + Copy + Add<Output = T> + Div<Output = T> + Rem<Output = T> + PartialEq,
+{
+	if (n0 % n1) != T::from(0) {
+		(n0 / n1) + T::from(1)
+	} else {
+		n0 / n1
+	}
 }
 
 /// Performs the log2 operatin on the given integer.
