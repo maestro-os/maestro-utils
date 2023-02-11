@@ -48,6 +48,13 @@ pub struct User {
 }
 
 impl User {
+	/// Hashes the given clear password and returns it with a generated salt, in the format
+	/// required for the shadow file.
+	pub fn hash_password(pass: &str) -> String {
+		// TODO generate a salt and hash the password
+		todo!();
+	}
+
 	/// Check the given (not hashed) password `pass` against the current entry.
 	///
 	/// If the function returns None, the callee must use the shadow entry.
