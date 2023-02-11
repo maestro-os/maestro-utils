@@ -19,6 +19,11 @@ maestro-utils provides utility commands for the Maestro operating system:
 	- insmod
 	- rmmod
 	- lsmod
+- Filesystem utilities:
+	- fdisk
+	- sfdisk
+	- mkfs
+	- fsck
 - System power:
 	- halt
 	- poweroff

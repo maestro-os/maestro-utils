@@ -18,8 +18,8 @@ use std::mem::MaybeUninit;
 /// Show a prompt. This function returns when a newline is received.
 ///
 /// Arguments:
-/// `prompt` is the prompt's text. If None, the function uses the default text.
-/// `hidden` tells whether the input is hidden.
+/// - `prompt` is the prompt's text. If `None`, the function uses the default text.
+/// - `hidden` tells whether the input is hidden.
 pub fn prompt(prompt: Option<&str>, hidden: bool) -> Option<String> {
 	let prompt = prompt.unwrap_or("Password: ");
 

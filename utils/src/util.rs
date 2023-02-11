@@ -1,6 +1,12 @@
 //! This module implements utility functions.
 
 use std::ffi::CStr;
+use std::fmt;
+use std::mem::size_of;
+use std::ops::Add;
+use std::ops::Div;
+use std::ops::Rem;
+use std::slice;
 use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -11,6 +17,13 @@ pub fn get_timestamp() -> Duration {
     SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.expect("System clock panic!")
+}
+
+/// Reinterprets the given reference as a slice.
+pub fn reinterpret<'a, T>(val: &'a T) -> &'a [u8] {
+	unsafe {
+		slice::from_raw_parts(val as *const _ as *const u8, size_of::<T>())
+	}
 }
 
 /// Returns the hostname of the system.
@@ -37,4 +50,93 @@ pub fn exec_wait<T, F: FnOnce() -> T>(d: Duration, f: F) -> T {
 	}
 
 	result
+}
+
+/// Computes ceil(n0 / n1) without using floating point numbers.
+#[inline(always)]
+pub fn ceil_division<T>(n0: T, n1: T) -> T
+where
+	T: From<u8> + Copy + Add<Output = T> + Div<Output = T> + Rem<Output = T> + PartialEq,
+{
+	if (n0 % n1) != T::from(0) {
+		(n0 / n1) + T::from(1)
+	} else {
+		n0 / n1
+	}
+}
+
+/// Performs the log2 operatin on the given integer.
+///
+/// If the result is undefined, the function returns None.
+pub fn log2(n: u64) -> Option<u64> {
+	let num_bits = (size_of::<u64>() * 8) as u64;
+
+	let n = num_bits - n.leading_zeros() as u64;
+	if n > 0 {
+		Some(n - 1)
+	} else {
+		None
+	}
+}
+
+/// Structure representing a number of bytes.
+pub struct ByteSize(pub u64);
+
+impl ByteSize {
+	/// Creates a size from a given number of sectors.
+	pub fn from_sectors_count(cnt: u64) -> Self {
+		Self(cnt * 512)
+	}
+}
+
+impl fmt::Display for ByteSize {
+	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut order = log2(self.0).unwrap_or(0) / log2(1024).unwrap();
+
+		let suffix = match order {
+			0 => "bytes",
+			1 => "KiB",
+			2 => "MiB",
+			3 => "GiB",
+			4 => "TiB",
+			5 => "PiB",
+			6 => "EiB",
+			7 => "ZiB",
+			8 => "YiB",
+
+			_ => {
+				order = 0;
+				"bytes"
+			}
+		};
+
+		let unit = 1024usize.pow(order as u32);
+		let nbr = self.0 / unit as u64;
+
+		write!(fmt, "{} {}", nbr, suffix)
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn bytesize() {
+		assert_eq!(format!("{}", ByteSize(0)).as_str(), "0 bytes");
+		assert_eq!(format!("{}", ByteSize(1)).as_str(), "1 bytes");
+		assert_eq!(format!("{}", ByteSize(1023)).as_str(), "1023 bytes");
+		assert_eq!(format!("{}", ByteSize(1024)).as_str(), "1 KiB");
+		assert_eq!(format!("{}", ByteSize(1025)).as_str(), "1 KiB");
+		assert_eq!(format!("{}", ByteSize(2048)).as_str(), "2 KiB");
+		assert_eq!(format!("{}", ByteSize(1024 * 1024)).as_str(), "1 MiB");
+		assert_eq!(
+			format!("{}", ByteSize(1024 * 1024 * 1024)).as_str(),
+			"1 GiB"
+		);
+		assert_eq!(
+			format!("{}", ByteSize(1024 * 1024 * 1024 * 1024)).as_str(),
+			"1 TiB"
+		);
+	}
 }

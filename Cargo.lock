@@ -4,13 +4,21 @@ version = 3
 
 [[package]]
 name = "cc"
-version = "1.0.73"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
+checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 
 [[package]]
 name = "dmesg"
 version = "0.1.0"
+
+[[package]]
+name = "fdisk"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "utils",
+]
 
 [[package]]
 name = "insmod"
@@ -21,9 +29,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.132"
+version = "0.2.139"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8371e4e5341c3a96db127eb2465ac681ced4c433e01dd0e938adbef26ba93ba5"
+checksum = "201de327520df007757c1f0adce6e827fe8562fbc28bfd9c15571c66ca1f5f79"
 
 [[package]]
 name = "login"
@@ -34,6 +42,17 @@ dependencies = [
 
 [[package]]
 name = "lsmod"
+version = "0.1.0"
+
+[[package]]
+name = "mkfs"
+version = "0.1.0"
+dependencies = [
+ "utils",
+]
+
+[[package]]
+name = "mount"
 version = "0.1.0"
 
 [[package]]
@@ -67,6 +86,10 @@ version = "0.1.0"
 dependencies = [
  "utils",
 ]
+
+[[package]]
+name = "umount"
+version = "0.1.0"
 
 [[package]]
 name = "usrgrp"

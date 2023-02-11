@@ -2,14 +2,18 @@
 
 members = [
 	"dmesg",
+	"fdisk",
 	"insmod",
 	"login",
 	"lsmod",
+	"mkfs",
+	"mount",
 	"nologin",
 	"powerctl",
 	"ps",
 	"rmmod",
 	"su",
+	"umount",
 	"usrgrp",
 	"utils",
 ]
