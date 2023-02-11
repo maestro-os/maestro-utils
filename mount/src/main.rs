@@ -174,7 +174,8 @@ fn main() {
 		}
 
 		&[device, dir] => {
-			mount_fs(device, dir, Some("ext4"), 0, None).unwrap(); // TODO handle error
+			// TODO detect filesystem type?
+			mount_fs(device, dir, Some("ext2"), 0, None).unwrap(); // TODO handle error
 		}
 
 		&[dir] => {
