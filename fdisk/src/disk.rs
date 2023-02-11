@@ -57,11 +57,14 @@ impl Disk {
 		if path_str.starts_with("/dev/sd") && !path_str.contains(|c: char| c.is_numeric()) {
 			return true;
 		}
-		if path_str.starts_with("/dev/nvme0n") && !path_str.contains('p') {
+		if path_str.starts_with("/dev/hd") && !path_str.contains(|c: char| c.is_numeric()) {
+			return true;
+		}
+		if path_str.starts_with("/dev/nvme0n") && !path_str.contains('p') { // FIXME
 			return true;
 		}
 
-		// TODO Add USB, floppy, cdrom, etc...
+		// TODO Add floppy, cdrom, etc...
 
 		false
 	}
