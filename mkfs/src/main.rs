@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 use utils::prompt::prompt;
@@ -59,10 +60,14 @@ fn parse_args() -> Args {
 pub trait FSFactory {
 	/// Tells whether a filesystem corresponding to the factory is present on the given device
 	/// `dev`.
-	fn is_present(&self, dev: &mut File) -> io::Result<bool>;
+	///
+	/// `path` is the path to the device.
+	fn is_present(&self, path: &Path, dev: &mut File) -> io::Result<bool>;
 
 	/// Creates the filesystem on the given device `dev`.
-	fn create(&self, dev: &mut File) -> io::Result<()>;
+	///
+	/// `path` is the path to the device.
+	fn create(&self, path: &Path, dev: &mut File) -> io::Result<()>;
 }
 
 fn main() {
@@ -89,25 +94,26 @@ fn main() {
 
 	let prev_fs = factories.iter()
 		.filter(|(_, factory)| {
-			factory.is_present(&mut file).unwrap_or_else(|e| {
+			factory.is_present(&device_path, &mut file).unwrap_or_else(|e| {
 				eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
 				exit(1);
 			})
 		})
 		.next();
 	if let Some((prev_fs_type, _prev_fs_factory)) = prev_fs {
-		println!("{} contains a {} file system", device_path.display(), prev_fs_type);
+		println!("{} contains a file system of type: {}", device_path.display(), prev_fs_type);
 		// TODO print details on fs (use factory)
 
 		let confirm = prompt(Some("Proceed anyway? (y/N) "), false)
 			.map(|s| s.to_lowercase() == "y")
 			.unwrap_or(false);
 		if !confirm {
+			eprintln!("Abort.");
 			exit(1);
 		}
 	}
 
-	factory.create(&mut file).unwrap_or_else(|e| {
+	factory.create(&device_path, &mut file).unwrap_or_else(|e| {
 		eprintln!("{}: failed to create filesystem: {}", args.prog, e);
 		exit(1);
 	});

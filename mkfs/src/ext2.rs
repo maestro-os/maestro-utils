@@ -4,11 +4,15 @@ use crate::FSFactory;
 use std::cmp::max;
 use std::cmp::min;
 use std::fs::File;
+use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
 use std::io;
 use std::mem::size_of;
+use std::mem;
+use std::path::Path;
+use std::slice;
 use utils::util::ceil_division;
 use utils::util::get_timestamp;
 use utils::util::log2;
@@ -262,21 +266,29 @@ pub struct Ext2Factory {
 }
 
 impl FSFactory for Ext2Factory {
-	fn is_present(&self, _dev: &mut File) -> io::Result<bool> {
-		// TODO
-		todo!();
+	fn is_present(&self, _: &Path, dev: &mut File) -> io::Result<bool> {
+		let mut superblock: Superblock = unsafe {
+			mem::zeroed()
+		};
+		let slice = unsafe {
+			slice::from_raw_parts_mut(
+				&mut superblock as *mut _ as *mut u8,
+				size_of::<Superblock>()
+			)
+		};
+
+		dev.seek(SeekFrom::Start(SUPERBLOCK_OFFSET))?;
+		dev.read_exact(slice)?;
+
+		Ok(superblock.signature == EXT2_SIGNATURE)
 	}
 
-	fn create(&self, dev: &mut File) -> io::Result<()> {
+	fn create(&self, path: &Path, dev: &mut File) -> io::Result<()> {
 		let timestamp = get_timestamp().as_secs() as u32;
 
 		let len = match self.len {
-			None => {
-				// TODO get from device file
-				todo!();
-			}
-
 			Some(len) => len,
+			None => utils::disk::get_disk_size(path)?,
 		};
 
 		let block_size = self.block_size.unwrap_or(DEFAULT_BLOCK_SIZE);
