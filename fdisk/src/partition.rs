@@ -901,6 +901,7 @@ impl PartitionTableType {
 				Self::write_gpt(dev, sectors_count, 1, &gpt, &parts)?;
 
 				// Alternate table
+				gpt.checksum = 0;
 				gpt.alternate_hdr_lba = 1;
 				gpt.entries_start = -33;
 				let hdr_slice = unsafe {
