@@ -387,9 +387,18 @@ impl FSFactory for Ext2Factory {
 		);
 		let bgdt_end = bgdt_off + bgdt_size as u64;
 
-		let block_usage_bitmap_size = ceil_division(blocks_per_group, (block_size * 8) as _);
-		let inode_usage_bitmap_size = ceil_division(inodes_per_group, (block_size * 8) as _);
-		let inodes_table_size = ceil_division(inodes_per_group * superblock.inode_size as u32, (block_size * 8) as _);
+		let block_usage_bitmap_size = ceil_division(
+			blocks_per_group,
+			(block_size * 8) as _
+		);
+		let inode_usage_bitmap_size = ceil_division(
+			inodes_per_group,
+			(block_size * 8) as _
+		);
+		let inodes_table_size = ceil_division(
+			inodes_per_group * superblock.inode_size as u32,
+			(block_size * 8) as _
+		);
 
 		// Write block groups
 		for i in 0..groups_count {

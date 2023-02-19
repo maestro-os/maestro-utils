@@ -5,6 +5,7 @@ mod ext2;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -87,10 +88,13 @@ fn main() {
 		exit(1);
 	});
 
-	let mut file = File::open(&device_path).unwrap_or_else(|e| {
-		eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
-		exit(1);
-	});
+	let mut file = OpenOptions::new()
+		.write(true)
+		.open(&device_path)
+		.unwrap_or_else(|e| {
+			eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
+			exit(1);
+		});
 
 	let prev_fs = factories.iter()
 		.filter(|(_, factory)| {
