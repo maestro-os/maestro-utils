@@ -89,6 +89,7 @@ fn main() {
 	});
 
 	let mut file = OpenOptions::new()
+		.read(true)
 		.write(true)
 		.open(&device_path)
 		.unwrap_or_else(|e| {
