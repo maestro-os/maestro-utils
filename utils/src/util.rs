@@ -6,6 +6,7 @@ use std::mem::size_of;
 use std::ops::Add;
 use std::ops::Div;
 use std::ops::Rem;
+use std::ops::Shl;
 use std::slice;
 use std::thread;
 use std::time::Duration;
@@ -37,8 +38,11 @@ pub fn get_hostname() -> String {
 }
 
 /// Executes the closure `f`.
-/// If the closure returns Ok, the function returns directly. If it return an error, the function
-/// ensures the execution takes at least the given duration `d`.
+///
+/// If the closure returns Ok, the function returns directly.
+///
+/// If it return an error, the function ensures the execution takes at least the given duration
+/// `d`.
 pub fn exec_wait<T, F: FnOnce() -> T>(d: Duration, f: F) -> T {
 	let start = get_timestamp();
 
@@ -65,9 +69,19 @@ where
 	}
 }
 
-/// Performs the log2 operatin on the given integer.
+/// Computes 2^^n on unsigned integers (where `^^` is an exponent).
 ///
-/// If the result is undefined, the function returns None.
+/// If n < 0, the behaviour is undefined.
+pub fn pow2<T>(n: T) -> T
+where
+	T: From<u8> + Shl<Output = T>,
+{
+	T::from(1) << n
+}
+
+/// Performs the log2 operation on the given integer.
+///
+/// If the result is undefined, the function returns `None`.
 pub fn log2(n: u64) -> Option<u64> {
 	let num_bits = (size_of::<u64>() * 8) as u64;
 

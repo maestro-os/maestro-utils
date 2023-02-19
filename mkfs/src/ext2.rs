@@ -11,6 +11,7 @@ use std::io::Write;
 use std::io;
 use std::mem::size_of;
 use std::mem;
+use std::num::NonZeroU32;
 use std::path::Path;
 use std::slice;
 use utils::util::ceil_division;
@@ -172,6 +173,22 @@ struct Superblock {
 	_padding: [u8; 788],
 }
 
+impl Superblock {
+	/// Returns the size of a block.
+	pub fn get_block_size(&self) -> u32 {
+		utils::util::pow2(self.block_size_log + 10) as _
+	}
+
+	/// Returns the size of an inode.
+	pub fn get_inode_size(&self) -> usize {
+		if self.major_version >= 1 {
+			self.inode_size as _
+		} else {
+			128
+		}
+	}
+}
+
 /// Structure representing a block group descriptor to be stored into the Block Group Descriptor
 /// Table (BGDT).
 #[repr(C, packed)]
@@ -191,6 +208,16 @@ struct BlockGroupDescriptor {
 
 	/// Structure padding.
 	_padding: [u8; 14],
+}
+
+impl BlockGroupDescriptor {
+	/// Returns the offset of the `i`th block group descriptor.
+	///
+	/// `superblock` is the filesystem's superblock.
+	pub fn get_disk_offset(i: u32, superblock: &Superblock) -> u64 {
+		let bgdt_off = (SUPERBLOCK_OFFSET / superblock.get_block_size() as u64) + 1;
+		(bgdt_off * superblock.get_block_size() as u64) + (i as u64 * size_of::<Self>() as u64)
+	}
 }
 
 /// An inode represents a file in the filesystem. The name of the file is not
@@ -240,6 +267,47 @@ struct INode {
 	fragment_addr: u32,
 	/// OS-specific value.
 	os_specific_1: [u8; 12],
+}
+
+impl INode {
+	/// Returns the offset of the inode on the disk in bytes.
+	///
+	/// Arguments:
+	/// - `i` is the inode's index (starting at `1`).
+	/// - `superblock` is the filesystem's superblock.
+	/// - `dev` is the device.
+	fn get_disk_offset(i: NonZeroU32, superblock: &Superblock, dev: &mut File) -> io::Result<u64> {
+		let i = i.get();
+
+		let blk_size = superblock.get_block_size() as u64;
+		let inode_size = superblock.get_inode_size() as u64;
+
+		// The block group the inode is located in
+		let blk_grp = (i - 1) / superblock.inodes_per_group;
+		// The offset of the inode in the block group's bitfield
+		let inode_grp_off = (i - 1) % superblock.inodes_per_group;
+		// The offset of the inode's block
+		let inode_table_blk_off = (inode_grp_off as u64 * inode_size) / blk_size;
+		// The offset of the inode in the block
+		let inode_blk_off = ((i - 1) as u64 * inode_size) % blk_size;
+
+		// Read block group descriptor
+		let bgd_off = BlockGroupDescriptor::get_disk_offset(blk_grp, superblock);
+		let mut bgd: BlockGroupDescriptor = unsafe {
+			mem::zeroed()
+		};
+		let slice = unsafe {
+			slice::from_raw_parts_mut(&mut bgd as *mut _ as *mut u8, size_of::<Superblock>())
+		};
+		dev.seek(SeekFrom::Start(SUPERBLOCK_OFFSET))?;
+		dev.read_exact(slice)?;
+
+		// The block containing the inode
+		let blk = bgd.inode_table_start_addr as u64 + inode_table_blk_off;
+
+		// The offset of the inode on the disk
+		Ok((blk * blk_size) + inode_blk_off)
+	}
 }
 
 /// A factory to create an `ext2` filesystem.
@@ -399,12 +467,11 @@ impl FSFactory for Ext2Factory {
 			inodes_per_group * superblock.inode_size as u32,
 			(block_size * 8) as _
 		);
+		let metadata_size = block_usage_bitmap_size + inode_usage_bitmap_size + inodes_table_size;
 
 		// Write block groups
 		for i in 0..groups_count {
-			let metadata_off = max(i * blocks_per_group, bgdt_end as u32);
-			let metadata_size = block_usage_bitmap_size + inode_usage_bitmap_size
-				+ inodes_table_size;
+			let metadata_off = bgdt_end as u32 + i * metadata_size;
 
 			let block_usage_bitmap_addr = metadata_off;
 			let inode_usage_bitmap_addr = metadata_off + block_usage_bitmap_size;
@@ -427,11 +494,17 @@ impl FSFactory for Ext2Factory {
 			dev.write(reinterpret(&bgd))?;
 		}
 
-		// TODO mark blocks as used, from the first to the end of the block group descriptor table
+		let used_blocks_end = bgdt_end as u32 + groups_count * metadata_size;
+		for _i in 0..used_blocks_end {
+			// TODO mark ith block as used
+		}
 
 		// TODO mark blocks as used for every bitmaps
 
 		// TODO mark inodes as used up to the first non reserved (excluded)
+		for _i in 0..superblock.first_non_reserved_inode {
+			// TODO mark inode `i` as used
+		}
 
 		// Create root directory
 		let root_dir = INode {
@@ -457,9 +530,16 @@ impl FSFactory for Ext2Factory {
 			fragment_addr: 0,
 			os_specific_1: [0; 12],
 		};
-		let root_inode_off = 0; // TODO
+		let root_inode_off = INode::get_disk_offset(
+			NonZeroU32::new(2).unwrap(),
+			&superblock,
+			dev
+		)?;
 		dev.seek(SeekFrom::Start(root_inode_off))?;
 		dev.write(reinterpret(&root_dir))?;
+
+		// TODO Inode for `/lost+found`
+		// TODO Add entries `.`, `..` and `lost+found`
 
 		// Write superblock
 		dev.seek(SeekFrom::Start(SUPERBLOCK_OFFSET))?;
