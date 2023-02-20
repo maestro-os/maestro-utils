@@ -459,7 +459,7 @@ impl FSFactory for Ext2Factory {
 			.unwrap_or([0; 64]);
 		let filesystem_id = self.fs_id.unwrap_or([0; 16]); // TODO if not set, random
 
-		let superblock = Superblock {
+		let mut superblock = Superblock {
 			total_inodes,
 			total_blocks,
 			superuser_blocks: 0,
@@ -584,6 +584,9 @@ impl FSFactory for Ext2Factory {
 			if (begin_inode..(begin_inode + inodes_per_group)).contains(&ROOT_INODE) {
 				bgd.directories_number += 1;
 			}
+
+			superblock.total_unallocated_blocks += bgd.unallocated_blocks_number as u32;
+			superblock.total_unallocated_inodes += bgd.unallocated_inodes_number as u32;
 
 			bgd.write(i, &superblock, dev)?;
 		}
