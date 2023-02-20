@@ -340,26 +340,26 @@ impl INode {
 	}
 }
 
-/// Fills the bitmap starting at offset `off` with 1s up to the given offset `end` (excluded).
+/// Fills the given bitmap.
 ///
-/// `dev` is the device.
-pub fn fill_bitmap(off: u64, end: u32, dev: &mut File) -> io::Result<()> {
-	let full_bytes = end as usize / 8;
-	let remaining_bits = end as usize % 8;
+/// Arguments:
+/// - `off` is the offset to the beginning of the bitmap.
+/// - `size` is the size of the bitmap in bytes.
+/// - `end` is the end of the portion to be set with 1s. The rest is set with 0s.
+/// - `dev` is the device.
+pub fn fill_bitmap(off: u64, size: usize, end: usize, dev: &mut File) -> io::Result<()> {
+	let mut slice: Vec<u8> = vec![0; size];
+
+	let set_bytes = end / 8;
+	let remaining_bits = end % 8;
 	let aligned = remaining_bits == 0;
 
-	let required_bytes = full_bytes + (if aligned { 0 } else { 1 });
-	if required_bytes == 0 {
-		return Ok(());
-	}
-
-	let mut slice: Vec<u8> = vec![0; required_bytes];
-	for i in 0..full_bytes {
+	for i in 0..set_bytes {
 		slice[i] = 0xff;
 	}
 
 	if !aligned {
-		slice[required_bytes - 1] = (1 << remaining_bits) - 1;
+		slice[set_bytes] = (1 << remaining_bits) - 1;
 	}
 
 	dev.seek(SeekFrom::Start(off))?;
@@ -410,9 +410,10 @@ impl FSFactory for Ext2Factory {
 	fn create(&self, path: &Path, dev: &mut File) -> io::Result<()> {
 		let timestamp = get_timestamp().as_secs() as u32;
 
+		let sector_size = 512; // TODO get from device
 		let len = match self.len {
 			Some(len) => len,
-			None => utils::disk::get_disk_size(path)?,
+			None => utils::disk::get_disk_size(path)? * sector_size,
 		};
 
 		let block_size = self.block_size.unwrap_or(DEFAULT_BLOCK_SIZE);
@@ -547,29 +548,37 @@ impl FSFactory for Ext2Factory {
 				_padding: [0; 14],
 			};
 
+			// Fill blocks bitmap
 			let begin_block = i * blocks_per_group;
 			let end_block = begin_block + blocks_per_group;
-			if begin_block < used_blocks_end {
-				let used_count = min(
-					end_block,
-					used_blocks_end - begin_block
-				);
+			let used_blocks_count = if begin_block < used_blocks_end {
+				min(end_block, used_blocks_end - begin_block)
+			} else {
+				0
+			};
+			fill_bitmap(
+				bgd.block_usage_bitmap_addr as u64 * block_size,
+				block_usage_bitmap_size as usize * block_size as usize,
+				used_blocks_count as usize,
+				dev
+			)?;
+			bgd.unallocated_blocks_number -= used_blocks_count as u16;
 
-				fill_bitmap(bgd.block_usage_bitmap_addr as u64 * block_size, used_count, dev)?;
-				bgd.unallocated_blocks_number -= used_count as u16;
-			}
-
+			// Fill inodes bitmap
 			let begin_inode = i * inodes_per_group;
 			let end_inode = begin_inode + inodes_per_group;
-			if begin_inode >= superblock.first_non_reserved_inode {
-				let used_count = min(
-					end_inode,
-					superblock.first_non_reserved_inode - begin_inode
-				);
-
-				fill_bitmap(bgd.inode_usage_bitmap_addr as u64 * block_size, used_count, dev)?;
-				bgd.unallocated_inodes_number -= used_count as u16;
-			}
+			let used_inodes_count = if begin_inode < superblock.first_non_reserved_inode {
+				min(end_inode, superblock.first_non_reserved_inode - begin_inode)
+			} else {
+				0
+			};
+			fill_bitmap(
+				bgd.inode_usage_bitmap_addr as u64 * block_size,
+				inode_usage_bitmap_size as usize * block_size as usize,
+				used_inodes_count as usize,
+				dev
+			)?;
+			bgd.unallocated_inodes_number -= used_inodes_count as u16;
 
 			// If containing the root inode
 			if (begin_inode..end_inode).contains(&ROOT_INODE) {
