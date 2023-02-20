@@ -228,7 +228,7 @@ impl BlockGroupDescriptor {
 	/// - `superblock` is the filesystem's superblock.
 	/// - `dev` is the device.
 	pub fn read(i: u32, superblock: &Superblock, dev: &mut File) -> io::Result<Self> {
-		let bgd_off = BlockGroupDescriptor::get_disk_offset(i, superblock);
+		let bgd_off = Self::get_disk_offset(i, superblock);
 		let mut bgd: BlockGroupDescriptor = unsafe {
 			mem::zeroed()
 		};
@@ -248,7 +248,7 @@ impl BlockGroupDescriptor {
 	/// - `superblock` is the filesystem's superblock.
 	/// - `dev` is the device.
 	pub fn write(&self, i: u32, superblock: &Superblock, dev: &mut File) -> io::Result<()> {
-		let bgd_off = BlockGroupDescriptor::get_disk_offset(i, superblock);
+		let bgd_off = Self::get_disk_offset(i, superblock);
 		let slice = unsafe {
 			slice::from_raw_parts(self as *const _ as *const u8, size_of::<Self>())
 		};
@@ -331,6 +331,8 @@ impl INode {
 		let inode_blk_off = ((i - 1) as u64 * inode_size) % blk_size;
 
 		let bgd = BlockGroupDescriptor::read(blk_grp, superblock, dev)?;
+
+		let a = bgd.inode_usage_bitmap_addr;
 
 		// The block containing the inode
 		let blk = bgd.inode_table_start_addr as u64 + inode_table_blk_off;
@@ -522,7 +524,7 @@ impl FSFactory for Ext2Factory {
 		);
 		let inodes_table_size = ceil_division(
 			inodes_per_group * superblock.inode_size as u32,
-			(block_size * 8) as _
+			block_size as u32
 		);
 		let metadata_size = block_usage_bitmap_size + inode_usage_bitmap_size + inodes_table_size;
 
@@ -550,9 +552,8 @@ impl FSFactory for Ext2Factory {
 
 			// Fill blocks bitmap
 			let begin_block = i * blocks_per_group;
-			let end_block = begin_block + blocks_per_group;
 			let used_blocks_count = if begin_block < used_blocks_end {
-				min(end_block, used_blocks_end - begin_block)
+				min(blocks_per_group, used_blocks_end - begin_block)
 			} else {
 				0
 			};
@@ -566,9 +567,8 @@ impl FSFactory for Ext2Factory {
 
 			// Fill inodes bitmap
 			let begin_inode = i * inodes_per_group;
-			let end_inode = begin_inode + inodes_per_group;
 			let used_inodes_count = if begin_inode < superblock.first_non_reserved_inode {
-				min(end_inode, superblock.first_non_reserved_inode - begin_inode)
+				min(inodes_per_group, superblock.first_non_reserved_inode - begin_inode)
 			} else {
 				0
 			};
@@ -581,14 +581,11 @@ impl FSFactory for Ext2Factory {
 			bgd.unallocated_inodes_number -= used_inodes_count as u16;
 
 			// If containing the root inode
-			if (begin_inode..end_inode).contains(&ROOT_INODE) {
+			if (begin_inode..(begin_inode + inodes_per_group)).contains(&ROOT_INODE) {
 				bgd.directories_number += 1;
 			}
 
-			let off = bgdt_off + i as u64 * size_of::<BlockGroupDescriptor>() as u64;
-			dev.seek(SeekFrom::Start(off))?;
-			dev.write(reinterpret(&bgd))?;
-
+			bgd.write(i, &superblock, dev)?;
 		}
 
 		// Create root directory
@@ -621,14 +618,14 @@ impl FSFactory for Ext2Factory {
 			dev
 		)?;
 		dev.seek(SeekFrom::Start(root_inode_off))?;
-		dev.write(reinterpret(&root_dir))?;
+		dev.write_all(reinterpret(&root_dir))?;
 
 		// TODO Inode for `/lost+found`
 		// TODO Add entries `.`, `..` and `lost+found`
 
 		// Write superblock
 		dev.seek(SeekFrom::Start(SUPERBLOCK_OFFSET))?;
-		dev.write(reinterpret(&superblock))?;
+		dev.write_all(reinterpret(&superblock))?;
 
 		Ok(())
 	}
