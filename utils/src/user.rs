@@ -5,6 +5,7 @@ use std::error::Error;
 use std::ffi::CString;
 use std::ffi::OsString;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
@@ -137,7 +138,10 @@ fn read(path: &Path) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
 
 /// Writes the file at path `path` with data `data`.
 fn write(path: &Path, data: &[Vec<OsString>]) -> io::Result<()> {
-	let mut file = File::open(path)?;
+	let mut file = OpenOptions::new()
+		.create(true)
+		.write(true)
+		.open(path)?;
 
 	for line in data {
 		for (i, elem) in line.iter().enumerate() {
