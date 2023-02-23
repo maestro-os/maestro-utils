@@ -2,8 +2,10 @@
 //! passwords list and the groups list.
 
 use std::error::Error;
+use std::ffi::CStr;
 use std::ffi::CString;
 use std::ffi::OsString;
+use std::ffi::c_void;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::BufRead;
@@ -25,14 +27,28 @@ extern "C" {
 	fn setuid(uid: u32) -> i32;
 	fn setgid(uid: u32) -> i32;
 
-    pub fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
+    fn hash_pass(pass: *const i8) -> *const i8;
+    fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
+
+	fn free(ptr: *mut c_void);
 }
 
 /// Hashes the given clear password and returns it with a generated salt, in the format
 /// required for the shadow file.
 pub fn hash_password(pass: &str) -> String {
-	// TODO generate a salt and hash the password
-	todo!();
+	let pass = CString::new(pass).unwrap();
+
+	let s = unsafe {
+		let ptr = hash_pass(pass.as_ptr());
+
+		let s = CStr::from_ptr(ptr).to_string_lossy().to_string();
+
+		free(ptr as _);
+
+		s
+	};
+
+	s
 }
 
 // TODO For each files, use a backup file with the same path but with `-` appended at the end
