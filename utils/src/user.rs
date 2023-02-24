@@ -27,7 +27,7 @@ extern "C" {
 	fn setuid(uid: u32) -> i32;
 	fn setgid(uid: u32) -> i32;
 
-    fn hash_pass(pass: *const i8) -> *const i8;
+    //fn hash_pass(pass: *const i8) -> *const i8;
     fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
 
 	fn free(ptr: *mut c_void);
@@ -36,7 +36,7 @@ extern "C" {
 /// Hashes the given clear password and returns it with a generated salt, in the format
 /// required for the shadow file.
 pub fn hash_password(pass: &str) -> String {
-	let pass = CString::new(pass).unwrap();
+	/*let pass = CString::new(pass).unwrap();
 
 	let s = unsafe {
 		let ptr = hash_pass(pass.as_ptr());
@@ -48,7 +48,8 @@ pub fn hash_password(pass: &str) -> String {
 		s
 	};
 
-	s
+	s*/
+	"TODO".into()
 }
 
 // TODO For each files, use a backup file with the same path but with `-` appended at the end

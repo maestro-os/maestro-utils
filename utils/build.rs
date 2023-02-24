@@ -6,6 +6,7 @@ fn main() {
 
 	cc::Build::new()
         .static_flag(true)
+		.flag("-lcrypt")
 		.file("src/hash.c")
 		.compile("utils")
 }
