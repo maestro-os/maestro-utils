@@ -3,8 +3,12 @@
 use std::env;
 use std::ffi::CString;
 use std::ffi::c_int;
+use std::fs;
 use std::io::Error;
 use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::exit;
 
 /// Prints the command's usage.
@@ -24,7 +28,7 @@ extern "C" {
 }
 
 /// Unmounts the filesystem at the given path `target`.
-pub fn unmount_fs(target: &str) -> io::Result<()> {
+pub fn unmount_fs(target: &[u8]) -> io::Result<()> {
 	let target_c = CString::new(target).unwrap();
 
 	let ret = unsafe {
@@ -37,6 +41,15 @@ pub fn unmount_fs(target: &str) -> io::Result<()> {
 	Ok(())
 }
 
+/// Lists active mount points.
+pub fn list_mount_points() -> io::Result<Vec<PathBuf>> {
+	let content = fs::read_to_string("/etc/mtab")?;
+
+	Ok(content.split('\n')
+		.map(|entry| entry.split(' ').nth(1).unwrap().into())
+		.collect())
+}
+
 fn main() {
 	let args: Vec<String> = env::args().collect();
 
@@ -47,7 +60,7 @@ fn main() {
 		}
 
 		2 if args[1] != "-R" => {
-			unmount_fs(&args[1])
+			unmount_fs(args[1].as_bytes())
 				.unwrap_or_else(|e| {
 					eprintln!("{}: cannot unmount `{}`: {}", args[0], args[1], e);
 					exit(1);
@@ -55,8 +68,23 @@ fn main() {
 		}
 
 		3 if args[1] == "-R" => {
-			// TODO
-			todo!();
+			let mut mount_points = list_mount_points()
+				.unwrap_or_else(|e| {
+					eprintln!("{}: cannot list mount points: {}", args[0], e);
+					exit(1);
+				});
+			mount_points.sort_unstable();
+
+			let inner_mount_points_iter = mount_points.iter()
+				.filter(|mp| mp.starts_with(&args[1]));
+
+			for mp in inner_mount_points_iter {
+				unmount_fs(mp.as_os_str().as_bytes())
+					.unwrap_or_else(|e| {
+						eprintln!("{}: cannot unmount `{}`: {}", args[0], args[1], e);
+						exit(1);
+					});
+			}
 		}
 
 		_ => {
