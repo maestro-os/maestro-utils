@@ -1,7 +1,6 @@
 //! The `mount` command allows to unmount a filesystem.
 
 use std::env;
-use std::ffi::CString;
 use std::ffi::c_int;
 use std::fs;
 use std::io::Error;
@@ -29,10 +28,8 @@ extern "C" {
 
 /// Unmounts the filesystem at the given path `target`.
 pub fn unmount_fs(target: &[u8]) -> io::Result<()> {
-	let target_c = CString::new(target).unwrap();
-
 	let ret = unsafe {
-		umount(target_c.as_ptr())
+		umount(target.as_ptr() as *const _)
 	};
 	if ret < 0 {
 		return Err(Error::last_os_error());
@@ -46,7 +43,7 @@ pub fn list_mount_points() -> io::Result<Vec<PathBuf>> {
 	let content = fs::read_to_string("/etc/mtab")?;
 
 	Ok(content.split('\n')
-		.map(|entry| entry.split(' ').nth(1).unwrap().into())
+		.filter_map(|entry| Some(entry.split(' ').nth(1)?.into()))
 		.collect())
 }
 
