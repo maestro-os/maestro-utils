@@ -77,7 +77,6 @@ impl TryFrom<&str> for GUID {
 				0..4 => 4 - i - 1,
 				4..6 => 6 - i - 1 + 4,
 				6..8 => 8 - i - 1 + 6,
-				8..10 => 10 - i - 1 + 8,
 
 				_ => i,
 			};
@@ -109,13 +108,17 @@ impl fmt::Display for GUID {
 		}
 		write!(fmt, "-")?;
 
-		for i in 0..3 {
+		for i in 0..2 {
 			for j in (0..2).rev() {
 				write!(fmt, "{:02x}", self.0[4 + i * 2 + j])?;
 			}
-
 			write!(fmt, "-")?;
 		}
+
+		for i in 8..10 {
+			write!(fmt, "{:02x}", self.0[i])?;
+		}
+		write!(fmt, "-")?;
 
 		for i in 10..16 {
 			write!(fmt, "{:02x}", self.0[i])?;
