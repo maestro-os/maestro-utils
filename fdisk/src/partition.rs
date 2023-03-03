@@ -69,8 +69,20 @@ impl TryFrom<&str> for GUID {
 		let mut i = 0;
 		while let (Some(hi), Some(lo)) = (iter.next(), iter.next()) {
 			let byte = String::from_iter([hi, lo]);
-			guid.0[i] = u8::from_str_radix(byte.as_str(), 16).unwrap();
+			// Unwrap cannot fail since characters are checked before
+			let value = u8::from_str_radix(byte.as_str(), 16).unwrap();
 
+			// Reverse necessary parts
+			let index = match i {
+				0..4 => 4 - i - 1,
+				4..6 => 6 - i - 1 + 4,
+				6..8 => 8 - i - 1 + 6,
+				8..10 => 10 - i - 1 + 8,
+
+				_ => i,
+			};
+
+			guid.0[index] = value;
 			i += 1;
 		}
 
@@ -92,13 +104,13 @@ impl GUID {
 
 impl fmt::Display for GUID {
 	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-		for i in 0..4 {
+		for i in (0..4).rev() {
 			write!(fmt, "{:02x}", self.0[i])?;
 		}
 		write!(fmt, "-")?;
 
 		for i in 0..3 {
-			for j in 0..2 {
+			for j in (0..2).rev() {
 				write!(fmt, "{:02x}", self.0[4 + i * 2 + j])?;
 			}
 
