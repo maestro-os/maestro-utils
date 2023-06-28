@@ -15,36 +15,34 @@ const FINIT_MODULE_ID: c_long = 0x15e;
 
 /// Prints usage.
 fn print_usage() {
-	println!("Usage:");
-	println!(" insmod <filename> [params]");
-	println!();
-	println!("Loads a kernel module from the given file");
+    println!("Usage:");
+    println!(" insmod <filename> [params]");
+    println!();
+    println!("Loads a kernel module from the given file");
 }
 
 fn main() {
-	let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
 
-	if args.len() < 2 {
-		print_usage();
-		exit(1);
-	}
+    if args.len() < 2 {
+        print_usage();
+        exit(1);
+    }
 
-	let filepath = PathBuf::from(&args[1]);
-	let file = File::open(&filepath)
-		.unwrap_or_else(|e| {
-			eprintln!("insmod: cannot open file `{}`: {}", filepath.display(), e);
-			exit(1);
-		});
+    let filepath = PathBuf::from(&args[1]);
+    let file = File::open(&filepath).unwrap_or_else(|e| {
+        eprintln!("insmod: cannot open file `{}`: {}", filepath.display(), e);
+        exit(1);
+    });
 
-	// TODO handle parameters
-	let ret = unsafe {
-		syscall(FINIT_MODULE_ID, file.as_raw_fd(), null::<u8>(), 0)
-	};
-	if ret < 0 {
-		eprintln!(
-			"insmod: cannot load module `{}`: {}",
-			filepath.display(), Error::last_os_error()
-		);
-		exit(1);
-	}
+    // TODO handle parameters
+    let ret = unsafe { syscall(FINIT_MODULE_ID, file.as_raw_fd(), null::<u8>(), 0) };
+    if ret < 0 {
+        eprintln!(
+            "insmod: cannot load module `{}`: {}",
+            filepath.display(),
+            Error::last_os_error()
+        );
+        exit(1);
+    }
 }

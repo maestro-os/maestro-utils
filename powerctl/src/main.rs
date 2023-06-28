@@ -13,16 +13,16 @@ use std::process::exit;
 ///
 /// `name` is the name of the binary.
 fn print_usage(name: Option<&str>) {
-	let name = name.unwrap_or("shutdown/poweroff/reboot/halt/suspend");
+    let name = name.unwrap_or("shutdown/poweroff/reboot/halt/suspend");
 
-	println!("Usage:");
-	println!(" {} [-f] [-n]", name);
-	println!();
-	println!("Controls the system's power.");
-	println!();
-	println!("Options:");
-	println!(" -f\tforce operation without stopping services");
-	println!(" -n\tdon't synchronize storage");
+    println!("Usage:");
+    println!(" {} [-f] [-n]", name);
+    println!();
+    println!("Controls the system's power.");
+    println!();
+    println!("Options:");
+    println!(" -f\tforce operation without stopping services");
+    println!(" -n\tdon't synchronize storage");
 }
 
 /// Structure representing input arguments.
@@ -35,35 +35,31 @@ struct Args {
 
 /// Parses arguments from the given array.
 fn parse_args(args: Vec<String>) -> Option<Args> {
-	let mut err = false;
+    let mut err = false;
     let mut result = Args {
         force: false,
         no_sync: false,
     };
 
-    args.into_iter()
-        .skip(1)
-        .for_each(| a | {
-            match a.as_str() {
-                "-f" | "--force" => result.force = true,
-                "-n" | "--no-sync" => result.no_sync = true,
+    args.into_iter().skip(1).for_each(|a| match a.as_str() {
+        "-f" | "--force" => result.force = true,
+        "-n" | "--no-sync" => result.no_sync = true,
 
-                _ => {
-                    eprintln!("Invalid argument `{}`", a);
-					err = true;
-                },
-            }
-        });
+        _ => {
+            eprintln!("Invalid argument `{}`", a);
+            err = true;
+        }
+    });
 
-	if !err {
-		Some(result)
-	} else {
-		None
-	}
+    if !err {
+        Some(result)
+    } else {
+        None
+    }
 }
 
 fn main() {
-	let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
 
     if args.is_empty() {
         print_usage(None);
@@ -94,6 +90,6 @@ fn main() {
         _ => {
             print_usage(Some(&bin));
             exit(1);
-        },
+        }
     }
 }

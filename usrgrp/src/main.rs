@@ -11,175 +11,173 @@ use std::process::exit;
 
 /// Command line arguments.
 pub enum Args {
-	UserAdd {
-		/// If set, display usage.
-		help: bool,
+    UserAdd {
+        /// If set, display usage.
+        help: bool,
 
-		/// The home directory of the new user.
-		home_dir: Option<String>,
+        /// The home directory of the new user.
+        home_dir: Option<String>,
 
-		/// The expiry timestamp for the user.
-		expire_ts: Option<u64>,
-		/// The inactivity period of the new user.
-		inactive_period: Option<u64>,
+        /// The expiry timestamp for the user.
+        expire_ts: Option<u64>,
+        /// The inactivity period of the new user.
+        inactive_period: Option<u64>,
 
-		/// If set, create the user's home directory.
-		create_home: bool,
+        /// If set, create the user's home directory.
+        create_home: bool,
 
-		/// If set, create a group with the same name as the user.
-		user_group: bool,
+        /// If set, create a group with the same name as the user.
+        user_group: bool,
 
-		/// The UID for the new user.
-		uid: Option<u16>,
-		/// The ID or name of the group for the new user.
-		gid: Option<String>,
+        /// The UID for the new user.
+        uid: Option<u16>,
+        /// The ID or name of the group for the new user.
+        gid: Option<String>,
 
-		/// The encrypted password for the new password.
-		password: Option<String>,
-		/// The login shell of the new account.
-		shell: Option<String>,
+        /// The encrypted password for the new password.
+        password: Option<String>,
+        /// The login shell of the new account.
+        shell: Option<String>,
 
-		/// The username.
-		name: String,
-	},
+        /// The username.
+        name: String,
+    },
 
-	UserMod {
-		/// If set, display usage.
-		help: bool,
+    UserMod {
+        /// If set, display usage.
+        help: bool,
 
-		// TODO
+        // TODO
+        /// The username.
+        name: String,
+    },
 
-		/// The username.
-		name: String,
-	},
+    UserDel {
+        /// If set, display usage.
+        help: bool,
 
-	UserDel {
-		/// If set, display usage.
-		help: bool,
+        /// If set, delete the user even if still logged in.
+        force: bool,
 
-		/// If set, delete the user even if still logged in.
-		force: bool,
+        /// If set, remove the home directory and mail spool.
+        remove_home: bool,
 
-		/// If set, remove the home directory and mail spool.
-		remove_home: bool,
+        /// The username.
+        name: String,
+    },
 
-		/// The username.
-		name: String,
-	},
+    GroupAdd {
+        /// If set, display usage.
+        help: bool,
 
-	GroupAdd {
-		/// If set, display usage.
-		help: bool,
+        /// The ID to use for the group.
+        gid: Option<u16>,
 
-		/// The ID to use for the group.
-		gid: Option<u16>,
+        /// The group name.
+        name: String,
+    },
 
-		/// The group name.
-		name: String,
-	},
+    GroupMod {
+        /// If set, display usage.
+        help: bool,
 
-	GroupMod {
-		/// If set, display usage.
-		help: bool,
+        // TODO
+        /// The group name.
+        name: String,
+    },
 
-		// TODO
+    GroupDel {
+        /// If set, display usage.
+        help: bool,
 
-		/// The group name.
-		name: String,
-	},
+        /// If set, delete the group even if it is the primary group of a user.
+        force: bool,
 
-	GroupDel {
-		/// If set, display usage.
-		help: bool,
-
-		/// If set, delete the group even if it is the primary group of a user.
-		force: bool,
-
-		/// The group name.
-		name: String,
-	},
+        /// The group name.
+        name: String,
+    },
 }
 
 /// Parses command line arguments.
 fn parse_args() -> Args {
-	let mut args_iter = env::args();
+    let mut args_iter = env::args();
 
-	let bin = match args_iter.next() {
-		Some(bin) => bin,
+    let bin = match args_iter.next() {
+        Some(bin) => bin,
 
-		None => {
-			// TODO return usage
-			todo!();
-		}
-	};
+        None => {
+            // TODO return usage
+            todo!();
+        }
+    };
 
-	match bin.as_str() {
-		"useradd" => {
-			// TODO
-			todo!();
-		}
+    match bin.as_str() {
+        "useradd" => {
+            // TODO
+            todo!();
+        }
 
-		"usermod" => {
-			// TODO
-			todo!();
-		}
+        "usermod" => {
+            // TODO
+            todo!();
+        }
 
-		"userdel" => {
-			// TODO
-			todo!();
-		}
+        "userdel" => {
+            // TODO
+            todo!();
+        }
 
-		"groupadd" => {
-			// TODO
-			todo!();
-		}
+        "groupadd" => {
+            // TODO
+            todo!();
+        }
 
-		"groupmod" => {
-			// TODO
-			todo!();
-		}
+        "groupmod" => {
+            // TODO
+            todo!();
+        }
 
-		"groupdel" => {
-			// TODO
-			todo!();
-		}
+        "groupdel" => {
+            // TODO
+            todo!();
+        }
 
-		_ => exit(1),
-	}
+        _ => exit(1),
+    }
 }
 
 fn main() {
-	let args = parse_args();
+    let args = parse_args();
 
-	match args {
-		Args::UserAdd { .. } => {
-			// TODO
-			todo!();
-		},
+    match args {
+        Args::UserAdd { .. } => {
+            // TODO
+            todo!();
+        }
 
-		Args::UserMod { .. } => {
-			// TODO
-			todo!();
-		},
+        Args::UserMod { .. } => {
+            // TODO
+            todo!();
+        }
 
-		Args::UserDel { .. } => {
-			// TODO
-			todo!();
-		},
+        Args::UserDel { .. } => {
+            // TODO
+            todo!();
+        }
 
-		Args::GroupAdd { .. } => {
-			// TODO
-			todo!();
-		},
+        Args::GroupAdd { .. } => {
+            // TODO
+            todo!();
+        }
 
-		Args::GroupMod { .. } => {
-			// TODO
-			todo!();
-		},
+        Args::GroupMod { .. } => {
+            // TODO
+            todo!();
+        }
 
-		Args::GroupDel { .. } => {
-			// TODO
-			todo!();
-		},
-	}
+        Args::GroupDel { .. } => {
+            // TODO
+            todo!();
+        }
+    }
 }
