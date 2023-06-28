@@ -152,33 +152,33 @@ fn main() {
 		.map(|s| s.as_str())
 		.collect();
 
-	match &a[1..] {
-		&[] => {
+	match a[1..] {
+		[] => {
 			print_usage(bin);
 			exit(1);
 		}
 
-		&["-h"] => {
+		["-h"] => {
 			print_usage(bin);
 			exit(0);
 		}
 
-		&["-l"] => {
+		["-l"] => {
 			// TODO print /etc/mtab to stdout
 			todo!();
 		}
 
-		&["-a"] => {
+		["-a"] => {
 			// TODO iterate on entries of /etc/fstab and mount all
 			todo!();
 		}
 
-		&[device, dir] => {
+		[device, dir] => {
 			// TODO detect filesystem type?
 			mount_fs(device, dir, Some("ext2"), 0, None).unwrap(); // TODO handle error
 		}
 
-		&[dir] => {
+		[_dir] => {
 			// TODO lookup in /etc/fstab to get device, then mount
 			todo!();
 		}

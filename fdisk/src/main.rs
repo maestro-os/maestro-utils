@@ -147,7 +147,7 @@ fn export_script(disk: &Disk, path: &Path) -> io::Result<()> {
 		.truncate(true)
 		.open(path)?;
 	let serialized = disk.partition_table.serialize(path);
-	script_file.write(serialized.as_bytes())?;
+	script_file.write_all(serialized.as_bytes())?;
 	script_file.flush()?;
 
 	Ok(())

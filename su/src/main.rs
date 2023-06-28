@@ -8,21 +8,21 @@ use utils::prompt::prompt;
 
 /// Structure representing the command's arguments.
 #[derive(Default)]
-struct Args {
+struct Args<'s> {
 	/// The user which executes the command. If None, using root.
-	user: Option<String>,
+	user: Option<&'s str>,
 	/// The group which executtes the command. If None, using root.
-	group: Option<String>,
+	group: Option<&'s str>,
 
 	/// The shell to execute. If None, using the default.
-	shell: Option<String>,
+	shell: Option<&'s str>,
 
 	/// Arguments for the command to execute.
-	args: Vec<String>,
+	args: Vec<&'s str>,
 }
 
 /// Parses the given CLI arguments `args` and returns their representation in the `Args` structure.
-fn parse_args(args: Vec<String>) -> Args {
+fn parse_args(args: &Vec<String>) -> Args<'_> {
 	let mut result = Args::default();
 	// Iterating on arguments, skipping binary's name
 	let mut iter = args.iter().skip(1).peekable();
@@ -49,19 +49,19 @@ fn parse_args(args: Vec<String>) -> Args {
 		}
 	}
 
-	result.user = iter.next().map(| s | s.clone());
-	result.args = iter.map(| s | s.clone()).collect::<Vec<String>>();
+	result.user = iter.next().map(|s| s.as_str());
+	result.args = iter.map(|s| s.as_str()).collect();
 
 	result
 }
 
 fn main() {
 	let args: Vec<String> = env::args().collect();
-	let args = parse_args(args);
+	let args = parse_args(&args);
 
-	let _user = args.user.unwrap_or("root".to_owned());
+	let _user = args.user.unwrap_or("root");
 	// TODO Read user's entry
-	let shell = args.shell.unwrap_or("TODO".to_owned());
+	let shell = args.shell.unwrap_or("TODO");
 
 	let _pass = prompt(None, true);
 	let correct = false; // TODO Check password against user's

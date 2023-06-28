@@ -33,7 +33,7 @@ pub fn prompt(prompt: Option<&str>, hidden: bool) -> Option<String> {
 
 	if hidden {
 		// Setting temporary termios
-		let mut termios = saved_termios.clone();
+		let mut termios = saved_termios;
 		termios.c_lflag &= !(ICANON | ECHO | ECHOE);
 		termios.c_cc[VMIN] = 1;
 

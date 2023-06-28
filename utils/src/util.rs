@@ -21,7 +21,7 @@ pub fn get_timestamp() -> Duration {
 }
 
 /// Reinterprets the given reference as a slice.
-pub fn reinterpret<'a, T>(val: &'a T) -> &'a [u8] {
+pub fn reinterpret<T>(val: &T) -> &[u8] {
 	unsafe {
 		slice::from_raw_parts(val as *const _ as *const u8, size_of::<T>())
 	}
@@ -83,7 +83,7 @@ where
 ///
 /// If the result is undefined, the function returns `None`.
 pub fn log2(n: u64) -> Option<u64> {
-	let num_bits = (size_of::<u64>() * 8) as u64;
+	let num_bits = u64::BITS as u64;
 
 	let n = num_bits - n.leading_zeros() as u64;
 	if n > 0 {

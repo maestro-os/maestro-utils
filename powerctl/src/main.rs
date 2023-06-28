@@ -65,7 +65,7 @@ fn parse_args(args: Vec<String>) -> Option<Args> {
 fn main() {
 	let args: Vec<String> = env::args().collect();
 
-    if args.len() == 0 {
+    if args.is_empty() {
         print_usage(None);
         exit(1);
     }

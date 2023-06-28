@@ -131,7 +131,7 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 					Err(_) => error("process ID list syntax error"),
 				};
 
-				let mut pids = iter.map(| pid | Selector::Pid(pid)).collect();
+				let mut pids = iter.map(Selector::Pid).collect();
 				selectors.append(&mut pids);
 			} else {
 				error("list of process IDs must follow -p");
@@ -140,7 +140,7 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 			"-t" => if let Some(termlist) = args.next() {
 				let mut terms = util::parse_str_list(&termlist)
 					.into_iter()
-					.map(| pid | Selector::Term(pid))
+					.map(Selector::Term)
 					.collect();
 
 				selectors.append(&mut terms);
@@ -154,8 +154,8 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 							Some(user) => selectors.push(Selector::Uid(user.uid)),
 
 							None => match user.parse::<u32>() {
-								Ok(uid) => selectors.push(Selector::Uid(uid)),
-								Err(_) => {},
+							   Ok(uid) => selectors.push(Selector::Uid(uid)),
+							   Err(_) => {},
 							},
 						}
 					});
@@ -172,8 +172,8 @@ fn parse_args() -> (Vec<Selector>, DisplayFormat) {
 							Some(user) => selectors.push(Selector::Ruid(user.uid)),
 
 							None => match user.parse::<u32>() {
-								Ok(uid) => selectors.push(Selector::Ruid(uid)),
-								Err(_) => {},
+							   Ok(uid) => selectors.push(Selector::Ruid(uid)),
+							   Err(_) => {},
 							},
 						}
 					});

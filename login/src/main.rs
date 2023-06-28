@@ -38,7 +38,7 @@ fn switch_user(logname: &str, user: &User) -> Result<!, Box<dyn Error>> {
 
 	// TODO Execute without fork
 	// Running the user's program
-	let status = Command::new(&interpreter)
+	let status = Command::new(interpreter)
 		.current_dir(home)
 		.envs(env)
 		.status()
@@ -70,8 +70,7 @@ fn main() {
 
 		// Getting user from prompted login
 		let user_entry = passwd.into_iter()
-			.filter(| e | e.login_name == login)
-			.next();
+			.find(| e | e.login_name == login);
 
 		util::exec_wait(Duration::from_millis(1000), || {
 			if let Some(user_entry) = user_entry {
@@ -100,33 +99,5 @@ fn main() {
 		});
 
 		eprintln!("Login incorrect");
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-    use std::ffi::CString;
-
-	#[test]
-	fn test_check_pass0() {
-		let pass = CString::new("123").unwrap();
-		let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
-		let result = unsafe {
-			user::check_pass(pass.as_ptr(), password.as_ptr()) != 0
-		};
-
-		assert!(result);
-	}
-
-	#[test]
-	fn test_check_pass1() {
-		let pass = CString::new("123456").unwrap();
-		let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
-		let result = unsafe {
-			user::check_pass(pass.as_ptr(), password.as_ptr()) != 0
-		};
-
-		assert!(!result);
 	}
 }

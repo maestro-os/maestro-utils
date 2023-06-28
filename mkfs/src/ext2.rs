@@ -1,7 +1,6 @@
 //! Module handling the `ext2` filesystem.
 
 use crate::FSFactory;
-use std::cmp::max;
 use std::cmp::min;
 use std::fs::File;
 use std::io::Read;
@@ -332,8 +331,6 @@ impl INode {
 
 		let bgd = BlockGroupDescriptor::read(blk_grp, superblock, dev)?;
 
-		let a = bgd.inode_usage_bitmap_addr;
-
 		// The block containing the inode
 		let blk = bgd.inode_table_start_addr as u64 + inode_table_blk_off;
 
@@ -356,9 +353,7 @@ pub fn fill_bitmap(off: u64, size: usize, end: usize, dev: &mut File) -> io::Res
 	let remaining_bits = end % 8;
 	let aligned = remaining_bits == 0;
 
-	for i in 0..set_bytes {
-		slice[i] = 0xff;
-	}
+	slice[0..set_bytes].fill(0xff);
 
 	if !aligned {
 		slice[set_bytes] = (1 << remaining_bits) - 1;
@@ -512,7 +507,7 @@ impl FSFactory for Ext2Factory {
 			groups_count as u64 * size_of::<BlockGroupDescriptor>() as u64,
 			block_size
 		);
-		let bgdt_end = bgdt_off + bgdt_size as u64;
+		let bgdt_end = bgdt_off + bgdt_size;
 
 		let block_usage_bitmap_size = ceil_division(
 			blocks_per_group,

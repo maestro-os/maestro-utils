@@ -76,7 +76,7 @@ fn main() {
 
 	// TODO build factory according to arguments
 	let factories = HashMap::<&str, Box<dyn FSFactory>>::from([
-		("ext2", Box::new(ext2::Ext2Factory::default()) as Box<dyn FSFactory>),
+		("ext2", Box::<ext2::Ext2Factory>::default() as Box<dyn FSFactory>),
 	]);
 	let factory = factories.get(args.fs_type.as_str()).unwrap_or_else(|| {
 		eprintln!("{}: invalid filesystem type `{}`", args.prog, args.fs_type);
@@ -98,13 +98,12 @@ fn main() {
 		});
 
 	let prev_fs = factories.iter()
-		.filter(|(_, factory)| {
+		.find(|(_, factory)| {
 			factory.is_present(&device_path, &mut file).unwrap_or_else(|e| {
 				eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
 				exit(1);
 			})
-		})
-		.next();
+		});
 	if let Some((prev_fs_type, _prev_fs_factory)) = prev_fs {
 		println!("{} contains a file system of type: {}", device_path.display(), prev_fs_type);
 		// TODO print details on fs (use factory)

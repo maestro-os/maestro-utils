@@ -98,9 +98,7 @@ impl DisplayFormat {
 	/// Tells whether the display format can be printed.
 	pub fn can_print(&self) -> bool {
 		self.names.iter()
-			.filter(|(_, display_name)| !display_name.is_empty())
-			.next()
-			.is_some()
+			.any(|(_, display_name)| !display_name.is_empty())
 	}
 
 	/// Concats the given format to the current.

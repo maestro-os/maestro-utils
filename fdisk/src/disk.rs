@@ -113,34 +113,34 @@ impl fmt::Display for Disk {
 
 		let byte_size = self.size * sector_size;
 
-		write!(
+		writeln!(
 			fmt,
-			"Disk {}: {}, {} bytes, {} sectors\n",
+			"Disk {}: {}, {} bytes, {} sectors",
 			self.dev_path.display(), ByteSize(byte_size), byte_size, self.size
 		)?;
-		write!(fmt, "Disk model: TODO\n")?;
-		write!(fmt, "Units: sectors of 1 * {} = {} bytes\n", sector_size, sector_size)?;
-		write!(
+		writeln!(fmt, "Disk model: TODO")?;
+		writeln!(fmt, "Units: sectors of 1 * {} = {} bytes", sector_size, sector_size)?;
+		writeln!(
 			fmt,
-			"Sector size (logical/physical): {} bytes / {} bytes\n",
+			"Sector size (logical/physical): {} bytes / {} bytes",
 			sector_size, sector_size
 		)?;
-		write!(
+		writeln!(
 			fmt,
-			"I/O size (minimum/optimal): {} bytes / {} bytes\n",
+			"I/O size (minimum/optimal): {} bytes / {} bytes",
 			sector_size, sector_size
 		)?;
-		write!(fmt, "Disklabel type: {}\n", self.partition_table.table_type)?;
-		write!(fmt, "Disk identifier: TODO\n")?;
+		writeln!(fmt, "Disklabel type: {}", self.partition_table.table_type)?;
+		writeln!(fmt, "Disk identifier: TODO")?;
 
 		if !self.partition_table.partitions.is_empty() {
-			write!(fmt, "\nDevice\tStart\tEnd\tSectors\tSize\tType\n")?;
+			writeln!(fmt, "\nDevice\tStart\tEnd\tSectors\tSize\tType")?;
 		}
 
 		for p in &self.partition_table.partitions {
-			write!(
+			writeln!(
 				fmt,
-				"/dev/TODO\t{}\t{}\t{}\t{}\tTODO\n",
+				"/dev/TODO\t{}\t{}\t{}\t{}\tTODO",
 				p.start, p.start + p.size, p.size, ByteSize(p.size)
 			)?;
 		}

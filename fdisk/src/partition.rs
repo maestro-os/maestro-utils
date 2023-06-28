@@ -869,7 +869,7 @@ impl PartitionTableType {
 					alternate_hdr_lba: -1,
 					first_usable: 34,
 					last_usable: -34,
-					disk_guid: disk_guid.clone(),
+					disk_guid,
 					entries_start: 2,
 					entries_number: partitions.len() as _,
 					entry_size: 128,
@@ -884,16 +884,14 @@ impl PartitionTableType {
 							_ => panic!(),
 						};
 
-						let entry = GPTEntry {
+						GPTEntry {
 							partition_type,
 							guid: p.uuid.unwrap(),
 							start: p.start as _,
 							end: (p.start + p.size) as _,
 							attributes: 0, // TODO
 							name: [0; 36], // TODO
-						};
-
-						entry
+						}
 					})
 					.collect();
 
@@ -960,10 +958,10 @@ impl TryFrom<&str> for PartitionType {
 
 	fn try_from(s: &str) -> Result<Self, Self::Error> {
 		GUID::try_from(s)
-			.map(|id| Self::GPT(id))
+			.map(Self::GPT)
 			.or_else(|_| {
 				u8::from_str_radix(s, 16)
-					.map(|id| Self::MBR(id))
+					.map(Self::MBR)
 			})
 			.map_err(|_| ())
 	}
@@ -1097,7 +1095,7 @@ impl PartitionTable {
 	pub fn deserialize(script: &str) -> Result<Self, String> {
 		// Skip header
 		let mut iter = script.split('\n');
-		while let Some(line) = iter.next() {
+		for line in iter.by_ref() {
 			if line.trim().is_empty() {
 				break;
 			}
@@ -1112,7 +1110,7 @@ impl PartitionTable {
 
 			let mut split = line.split(':').skip(1);
 			let Some(values) = split.next() else {
-				return Err(format!("Invalid syntax"));
+				return Err("Invalid syntax".to_owned());
 			};
 
 			// Filling partition structure
@@ -1120,7 +1118,7 @@ impl PartitionTable {
 			for v in values.split(',') {
 				let mut split = v.split('=');
 				let Some(name) = split.next() else {
-					return Err(format!("Invalid syntax"));
+					return Err("Invalid syntax".to_owned());
 				};
 
 				let name = name.trim();

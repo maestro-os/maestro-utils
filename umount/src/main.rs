@@ -6,7 +6,6 @@ use std::fs;
 use std::io::Error;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 
