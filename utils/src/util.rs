@@ -125,7 +125,7 @@ impl fmt::Display for ByteSize {
             }
         };
 
-        let unit = 1024usize.pow(order as u32);
+        let unit = 1024u64.pow(order as u32);
         let nbr = self.0 / unit as u64;
 
         write!(fmt, "{} {}", nbr, suffix)
@@ -138,20 +138,14 @@ mod test {
 
     #[test]
     fn bytesize() {
-        assert_eq!(format!("{}", ByteSize(0)).as_str(), "0 bytes");
-        assert_eq!(format!("{}", ByteSize(1)).as_str(), "1 bytes");
-        assert_eq!(format!("{}", ByteSize(1023)).as_str(), "1023 bytes");
-        assert_eq!(format!("{}", ByteSize(1024)).as_str(), "1 KiB");
-        assert_eq!(format!("{}", ByteSize(1025)).as_str(), "1 KiB");
-        assert_eq!(format!("{}", ByteSize(2048)).as_str(), "2 KiB");
-        assert_eq!(format!("{}", ByteSize(1024 * 1024)).as_str(), "1 MiB");
-        assert_eq!(
-            format!("{}", ByteSize(1024 * 1024 * 1024)).as_str(),
-            "1 GiB"
-        );
-        assert_eq!(
-            format!("{}", ByteSize(1024 * 1024 * 1024 * 1024)).as_str(),
-            "1 TiB"
-        );
+        assert_eq!(ByteSize(0).to_string(), "0 bytes");
+        assert_eq!(ByteSize(1).to_string(), "1 bytes");
+        assert_eq!(ByteSize(1023).to_string(), "1023 bytes");
+        assert_eq!(ByteSize(1024).to_string(), "1 KiB");
+        assert_eq!(ByteSize(1025).to_string(), "1 KiB");
+        assert_eq!(ByteSize(2048).to_string(), "2 KiB");
+        assert_eq!(ByteSize(1024 * 1024).to_string(), "1 MiB");
+        assert_eq!(ByteSize(1024 * 1024 * 1024).to_string(), "1 GiB");
+        assert_eq!(ByteSize(1024 * 1024 * 1024 * 1024).to_string(), "1 TiB");
     }
 }

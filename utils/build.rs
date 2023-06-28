@@ -1,4 +1,5 @@
 fn main() {
+    // TODO add feature to link this lib only if necessary
     println!("cargo:rustc-link-lib=crypt");
 
     println!("cargo:rerun-if-changed=src/hash.c");
