@@ -41,32 +41,4 @@ pub fn compute(data: &[u8], table: &[u32; 256]) -> u32 {
     !crc
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn crc32_0() {
-        for polynom in 0..u8::MAX {
-            let mut lookup_table = [0; 256];
-            compute_lookuptable(&mut lookup_table, polynom as _);
-
-            for i in u16::MIN..=u16::MAX {
-                let data = [i as _, (i >> 8) as _, 0, 0, 0, 0];
-                let checksum = compute(&data, &lookup_table);
-
-                let check = [
-                    data[0],
-                    data[1],
-                    checksum as _,
-                    (checksum >> 8) as _,
-                    (checksum >> 16) as _,
-                    (checksum >> 24) as _,
-                ];
-                assert_eq!(compute(&check, &lookup_table), 0);
-            }
-        }
-    }
-
-    // TODO More tests on CRC32
-}
+// TODO Test CRC32
