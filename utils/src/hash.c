@@ -2,13 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-// TODO
 /*
  * Hashes the given password.
  *
  * The function generates a random salt for each password.
  */
-/*char *hash_pass(const char *pass) {
+char *hash_pass(const char *pass) {
 	struct crypt_data data;
 	data.initialized = 0;
 
@@ -18,9 +17,8 @@
 
 	char *allocated = malloc(len);
 	memcpy(allocated, output, len);
-
 	return allocated;
-}*/
+}
 
 /*
  * Checks the given password `pass` against the given hashed password `hashed`.

@@ -24,10 +24,7 @@ pub const SHADOW_PATH: &str = "/etc/shadow";
 pub const GROUP_PATH: &str = "/etc/group";
 
 extern "C" {
-    fn setuid(uid: u32) -> i32;
-    fn setgid(uid: u32) -> i32;
-
-    //fn hash_pass(pass: *const i8) -> *const i8;
+    fn hash_pass(pass: *const i8) -> *const i8;
     fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
 
     fn free(ptr: *mut c_void);
@@ -36,20 +33,13 @@ extern "C" {
 /// Hashes the given clear password and returns it with a generated salt, in the format
 /// required for the shadow file.
 pub fn hash_password(pass: &str) -> String {
-    /*let pass = CString::new(pass).unwrap();
-
-    let s = unsafe {
+    let pass = CString::new(pass).unwrap();
+    unsafe {
         let ptr = hash_pass(pass.as_ptr());
-
         let s = CStr::from_ptr(ptr).to_string_lossy().to_string();
-
         free(ptr as _);
-
         s
-    };
-
-    s*/
-    "TODO".into()
+    }
 }
 
 // TODO For each files, use a backup file with the same path but with `-` appended at the end
@@ -84,7 +74,6 @@ impl User {
         let pass = CString::new(pass).unwrap();
         let password = CString::new(self.password.clone()).unwrap();
         let result = unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 };
-
         Some(result)
     }
 }
@@ -120,7 +109,6 @@ impl Shadow {
     pub fn check_password(&self, pass: &str) -> bool {
         let pass = CString::new(pass).unwrap();
         let password = CString::new(self.password.clone()).unwrap();
-
         unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 }
     }
 }
@@ -140,31 +128,26 @@ pub struct Group {
 /// Reads and parses the file at path `path`.
 fn read(path: &Path) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
     let file = File::open(path)?;
-    let mut data = vec![];
-
-    for l in BufReader::new(file).lines() {
-        data.push(l?.split(':').map(|s| s.to_owned()).collect::<_>());
-    }
-
-    Ok(data)
+    BufReader::new(file)
+        .lines()
+        .map(|l| {
+            Ok(l?.split(':').map(str::to_owned).collect())
+        })
+        .collect()
 }
 
 /// Writes the file at path `path` with data `data`.
 fn write(path: &Path, data: &[Vec<OsString>]) -> io::Result<()> {
     let mut file = OpenOptions::new().create(true).write(true).open(path)?;
-
     for line in data {
         for (i, elem) in line.iter().enumerate() {
             file.write_all(elem.as_bytes())?;
-
             if i + 1 < line.len() {
                 file.write_all(b":")?;
             }
         }
-
         file.write_all(b"\n")?;
     }
-
     Ok(())
 }
 
@@ -203,15 +186,14 @@ pub fn write_passwd(path: &Path, entries: &[User]) -> io::Result<()> {
             vec![
                 e.login_name.clone().into(),
                 e.password.clone().into(),
-                format!("{}", e.uid).into(),
-                format!("{}", e.gid).into(),
+                e.uid.to_string().into(),
+                e.gid.to_string().into(),
                 e.comment.clone().into(),
                 e.home.clone().into(),
                 e.interpreter.clone().into(),
             ]
         })
         .collect();
-
     write(path, &entries)
 }
 
@@ -252,32 +234,36 @@ pub fn write_shadow(path: &Path, entries: &[Shadow]) -> io::Result<()> {
             vec![
                 e.login_name.clone().into(),
                 e.password.clone().into(),
-                format!("{}", e.last_change).into(),
+                e.last_change.to_string().into(),
                 e.minimum_age
-                    .map(|v| format!("{}", v))
-                    .unwrap_or("".to_owned())
+                    .as_ref()
+                    .map(u32::to_string)
+                    .unwrap_or_default()
                     .into(),
                 e.maximum_age
-                    .map(|v| format!("{}", v))
-                    .unwrap_or("".to_owned())
+                    .as_ref()
+                    .map(u32::to_string)
+                    .unwrap_or_default()
                     .into(),
                 e.warning_period
-                    .map(|v| format!("{}", v))
-                    .unwrap_or("".to_owned())
+                    .as_ref()
+                    .map(u32::to_string)
+                    .unwrap_or_default()
                     .into(),
                 e.inactivity_period
-                    .map(|v| format!("{}", v))
-                    .unwrap_or("".to_owned())
+                    .as_ref()
+                    .map(u32::to_string)
+                    .unwrap_or_default()
                     .into(),
                 e.account_expiration
-                    .map(|v| format!("{}", v))
-                    .unwrap_or("".to_owned())
+                    .as_ref()
+                    .map(u32::to_string)
+                    .unwrap_or_default()
                     .into(),
                 e.reserved.clone().into(),
             ]
         })
         .collect();
-
     write(path, &entries)
 }
 
@@ -313,27 +299,24 @@ pub fn write_group(path: &Path, entries: &[Group]) -> io::Result<()> {
             vec![
                 e.group_name.clone().into(),
                 e.password.clone().into(),
-                format!("{}", e.gid).into(),
+                e.gid.to_string().into(),
                 e.users_list.clone().into(),
             ]
         })
         .collect();
-
     write(path, &entries)
 }
 
 /// Sets the current user.
 pub fn set(uid: u32, gid: u32) -> Result<(), Box<dyn Error>> {
-    let result = unsafe { setuid(uid) };
+    let result = unsafe { libc::setuid(uid) };
     if result < 0 {
         return Err("Failed to set UID!".into());
     }
-
-    let result = unsafe { setgid(gid) };
+    let result = unsafe { libc::setgid(gid) };
     if result < 0 {
         return Err("Failed to set GID!".into());
     }
-
     Ok(())
 }
 
@@ -347,7 +330,6 @@ mod tests {
         let pass = CString::new("123").unwrap();
         let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
         let result = unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 };
-
         assert!(result);
     }
 
@@ -356,7 +338,6 @@ mod tests {
         let pass = CString::new("123456").unwrap();
         let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
         let result = unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 };
-
         assert!(!result);
     }
 }
