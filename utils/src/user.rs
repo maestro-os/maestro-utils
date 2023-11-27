@@ -1,6 +1,9 @@
 //! The passwd, shadow and group files are mainly used to store respectively the users list, the
 //! passwords list and the groups list.
 
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use rand_core::OsRng;
 use std::error::Error;
 use std::ffi::OsString;
 use std::fs::File;
@@ -12,9 +15,6 @@ use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::path::PathBuf;
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::SaltString;
-use rand_core::OsRng;
 
 /// The path to the passwd file.
 pub const PASSWD_PATH: &str = "/etc/passwd";
@@ -38,7 +38,9 @@ pub fn check_password(hash: &str, pass: &str) -> bool {
     let Ok(parsed_hash) = PasswordHash::new(hash) else {
         return false;
     };
-    Argon2::default().verify_password(pass.as_bytes(), &parsed_hash).is_ok()
+    Argon2::default()
+        .verify_password(pass.as_bytes(), &parsed_hash)
+        .is_ok()
 }
 
 /// Structure representing a user. This entry is present in the passwd file.
@@ -121,9 +123,7 @@ fn read(path: &Path) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
     let file = File::open(path)?;
     BufReader::new(file)
         .lines()
-        .map(|l| {
-            Ok(l?.split(':').map(str::to_owned).collect())
-        })
+        .map(|l| Ok(l?.split(':').map(str::to_owned).collect()))
         .collect()
 }
 

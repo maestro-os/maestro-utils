@@ -1,17 +1,23 @@
 name: Check
 on: push
 jobs:
-    Compilation:
-        runs-on: [self-hosted, linux]
-        steps:
-            - uses: actions/checkout@v2
-            - name: Debug
-              run: cargo +nightly build
-            - name: Release
-              run: cargo +nightly build --release
-    Test:
-        runs-on: [self-hosted, linux]
-        steps:
-            - uses: actions/checkout@v2
-            - name: Test
-              run: cargo +nightly test
+  build:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Debug
+        run: cargo +nightly build
+      - name: Release
+        run: cargo +nightly build --release
+  test:
+    runs-on: [self-hosted, linux]
+    needs: build
+    steps:
+      - uses: actions/checkout@v3
+      - name: Test
+        run: cargo +nightly test
+  format:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v3
+      - run: cargo +nightly fmt --check

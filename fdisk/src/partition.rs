@@ -1418,16 +1418,16 @@ impl PartitionTable {
 
             let mut split = line.split(':').skip(1);
             let Some(values) = split.next() else {
-				return Err("Invalid syntax".to_owned());
-			};
+                return Err("Invalid syntax".to_owned());
+            };
 
             // Filling partition structure
             let mut part = Partition::default();
             for v in values.split(',') {
                 let mut split = v.split('=');
                 let Some(name) = split.next() else {
-					return Err("Invalid syntax".to_owned());
-				};
+                    return Err("Invalid syntax".to_owned());
+                };
 
                 let name = name.trim();
                 let value = split.next().map(|s| s.trim());
@@ -1435,44 +1435,44 @@ impl PartitionTable {
                 match name {
                     "start" => {
                         let Some(val) = value else {
-							return Err("`start` requires a value".into());
-						};
+                            return Err("`start` requires a value".into());
+                        };
                         let Ok(v) = val.parse() else {
-							return Err(format!("Invalid value for `start`: {}", val));
-						};
+                            return Err(format!("Invalid value for `start`: {}", val));
+                        };
 
                         part.start = v;
                     }
 
                     "size" => {
                         let Some(val) = value else {
-							return Err("`size` requires a value".into());
-						};
+                            return Err("`size` requires a value".into());
+                        };
                         let Ok(v) = val.parse() else {
-							return Err(format!("Invalid value for `size`: {}", val));
-						};
+                            return Err(format!("Invalid value for `size`: {}", val));
+                        };
 
                         part.size = v;
                     }
 
                     "type" => {
                         let Some(val) = value else {
-							return Err("`type` requires a value".into());
-						};
+                            return Err("`type` requires a value".into());
+                        };
                         let Ok(v) = val.try_into() else {
-							return Err(format!("Invalid value for `type`: {}", val));
-						};
+                            return Err(format!("Invalid value for `type`: {}", val));
+                        };
 
                         part.part_type = v;
                     }
 
                     "uuid" => {
                         let Some(val) = value else {
-							return Err("`uuid` requires a value".into());
-						};
+                            return Err("`uuid` requires a value".into());
+                        };
                         let Ok(val) = val.try_into() else {
-							return Err(format!("Invalid value for `uuid`: {}", val));
-						};
+                            return Err(format!("Invalid value for `uuid`: {}", val));
+                        };
 
                         part.uuid = Some(val);
                     }

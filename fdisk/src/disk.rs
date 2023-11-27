@@ -33,8 +33,8 @@ impl Disk {
     /// This function is meant to be used when listing disks.
     fn is_valid(path: &Path) -> bool {
         let Some(path_str) = path.as_os_str().to_str() else {
-			return false;
-		};
+            return false;
+        };
 
         if path_str.starts_with("/dev/sd") && !path_str.contains(|c: char| c.is_numeric()) {
             return true;
@@ -57,8 +57,8 @@ impl Disk {
     /// If the path doesn't point to a valid device, the function returns None.
     pub fn read(dev_path: PathBuf) -> io::Result<Option<Self>> {
         let Ok(size) = utils::disk::get_disk_size(&dev_path) else {
-			return Ok(None);
-		};
+            return Ok(None);
+        };
 
         let partition_table = PartitionTable::read(&dev_path, size)?;
 
