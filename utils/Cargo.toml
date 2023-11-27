@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+argon2 = { version = "0.5.2", features = ["password-hash"] }
 libc = "0.2.119"
-
-[build-dependencies]
-cc = "1.0"
+rand_core = { version = "0.6.4", features = ["getrandom"] }

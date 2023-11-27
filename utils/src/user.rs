@@ -2,9 +2,6 @@
 //! passwords list and the groups list.
 
 use std::error::Error;
-use std::ffi::c_void;
-use std::ffi::CStr;
-use std::ffi::CString;
 use std::ffi::OsString;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -15,6 +12,9 @@ use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::path::PathBuf;
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::SaltString;
+use rand_core::OsRng;
 
 /// The path to the passwd file.
 pub const PASSWD_PATH: &str = "/etc/passwd";
@@ -23,26 +23,23 @@ pub const SHADOW_PATH: &str = "/etc/shadow";
 /// The path to the group file.
 pub const GROUP_PATH: &str = "/etc/group";
 
-extern "C" {
-    fn hash_pass(pass: *const i8) -> *const i8;
-    fn check_pass(pass: *const i8, hashed: *const i8) -> i32;
-
-    fn free(ptr: *mut c_void);
-}
+// TODO For each files, use a backup file with the same path but with `-` appended at the end
 
 /// Hashes the given clear password and returns it with a generated salt, in the format
 /// required for the shadow file.
-pub fn hash_password(pass: &str) -> String {
-    let pass = CString::new(pass).unwrap();
-    unsafe {
-        let ptr = hash_pass(pass.as_ptr());
-        let s = CStr::from_ptr(ptr).to_string_lossy().to_string();
-        free(ptr as _);
-        s
-    }
+pub fn hash_password(pass: &str) -> Result<String, argon2::password_hash::Error> {
+    let salt = SaltString::generate(&mut OsRng);
+    let hash = Argon2::default().hash_password(pass.as_bytes(), &salt)?;
+    Ok(hash.to_string())
 }
 
-// TODO For each files, use a backup file with the same path but with `-` appended at the end
+/// Tells whether the given password `pass` corresponds to the hashed password `hash`.
+pub fn check_password(hash: &str, pass: &str) -> bool {
+    let Ok(parsed_hash) = PasswordHash::new(hash) else {
+        return false;
+    };
+    Argon2::default().verify_password(pass.as_bytes(), &parsed_hash).is_ok()
+}
 
 /// Structure representing a user. This entry is present in the passwd file.
 pub struct User {
@@ -70,11 +67,7 @@ impl User {
         if self.password.is_empty() || self.password == "x" {
             return None;
         }
-
-        let pass = CString::new(pass).unwrap();
-        let password = CString::new(self.password.clone()).unwrap();
-        let result = unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 };
-        Some(result)
+        Some(check_password(&self.password, pass))
     }
 }
 
@@ -107,9 +100,7 @@ pub struct Shadow {
 impl Shadow {
     /// Check the given (not hashed) password `pass` against the current entry.
     pub fn check_password(&self, pass: &str) -> bool {
-        let pass = CString::new(pass).unwrap();
-        let password = CString::new(self.password.clone()).unwrap();
-        unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 }
+        check_password(&self.password, pass)
     }
 }
 
@@ -318,26 +309,4 @@ pub fn set(uid: u32, gid: u32) -> Result<(), Box<dyn Error>> {
         return Err("Failed to set GID!".into());
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::ffi::CString;
-
-    #[test]
-    fn test_check_pass0() {
-        let pass = CString::new("123").unwrap();
-        let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
-        let result = unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 };
-        assert!(result);
-    }
-
-    #[test]
-    fn test_check_pass1() {
-        let pass = CString::new("123456").unwrap();
-        let password = CString::new("$6$sn0mUlqBuPqbywGS$aq0m2R66gj/Q6DdPfRkOzGDs15CY4Tq40Bju64b8kwbk2RWvXgKDhDiNK4qcJk8bUFY6zBcfJ2usxhd3lA7RC1").unwrap();
-        let result = unsafe { check_pass(pass.as_ptr(), password.as_ptr()) != 0 };
-        assert!(!result);
-    }
 }
