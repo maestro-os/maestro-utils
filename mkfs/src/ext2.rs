@@ -643,27 +643,39 @@ mod test {
     use super::*;
     use std::fs::{File, OpenOptions};
     use std::io::Write;
+    use std::path::PathBuf;
+    use std::process::Command;
 
-    fn prepare_device(size: usize) -> io::Result<File> {
+    fn prepare_device(size: usize) -> io::Result<(PathBuf, File)> {
+        let path = "/tmp/maestro-utils-test-mkfs-ext2".into();
         let mut dev = OpenOptions::new()
             .create(true)
             .read(true)
             .write(true)
             .truncate(true)
-            .open("/tmp/maestro-utils-test-mkfs-ext2")?;
+            .open(&path)?;
         let sector_size = 512;
         let buf = vec![0; sector_size];
         for i in 0..(size / sector_size) {
             dev.write_all(&buf)?;
         }
         dev.seek(SeekFrom::Start(0))?;
-        Ok(dev)
+        Ok((path, dev))
     }
 
     #[test]
     pub fn check_fs() {
         let disk_size = 64 * 1024 * 1024;
-        let dev = prepare_device(disk_size).unwrap();
-        // TODO
+        let (dev_path, mut dev) = prepare_device(disk_size).unwrap();
+
+        let factory = Ext2Factory::default();
+        factory.create(&mut dev).unwrap();
+
+        let status = Command::new("fsck.ext2")
+            .arg("-fn")
+            .arg(dev_path)
+            .status()
+            .unwrap();
+        assert!(status.success());
     }
 }
