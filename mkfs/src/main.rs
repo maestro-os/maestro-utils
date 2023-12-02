@@ -61,9 +61,7 @@ fn parse_args() -> Args {
 pub trait FSFactory {
     /// Tells whether a filesystem corresponding to the factory is present on the given device
     /// `dev`.
-    ///
-    /// `path` is the path to the device.
-    fn is_present(&self, path: &Path, dev: &mut File) -> io::Result<bool>;
+    fn is_present(&self, dev: &mut File) -> io::Result<bool>;
 
     /// Creates the filesystem on the given device `dev`.
     fn create(&self, dev: &mut File) -> io::Result<()>;
@@ -97,12 +95,10 @@ fn main() {
         });
 
     let prev_fs = factories.iter().find(|(_, factory)| {
-        factory
-            .is_present(&device_path, &mut file)
-            .unwrap_or_else(|e| {
-                eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
-                exit(1);
-            })
+        factory.is_present(&mut file).unwrap_or_else(|e| {
+            eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
+            exit(1);
+        })
     });
     if let Some((prev_fs_type, _prev_fs_factory)) = prev_fs {
         println!(

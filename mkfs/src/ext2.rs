@@ -11,7 +11,6 @@ use std::io::Write;
 use std::mem;
 use std::mem::size_of;
 use std::num::NonZeroU32;
-use std::path::Path;
 use std::slice;
 use utils::util;
 use utils::util::ceil_division;
@@ -395,7 +394,7 @@ pub struct Ext2Factory {
 }
 
 impl FSFactory for Ext2Factory {
-    fn is_present(&self, _: &Path, dev: &mut File) -> io::Result<bool> {
+    fn is_present(&self, dev: &mut File) -> io::Result<bool> {
         let mut superblock: Superblock = unsafe { mem::zeroed() };
         let slice = unsafe {
             slice::from_raw_parts_mut(
@@ -457,12 +456,12 @@ impl FSFactory for Ext2Factory {
             total_unallocated_inodes: 0,
             superblock_block_number: (SUPERBLOCK_OFFSET / block_size) as _,
             block_size_log: block_size_log - 10,
-            fragment_size_log: 0,
+            fragment_size_log: block_size_log - 10,
             blocks_per_group,
-            fragments_per_group: 0,
+            fragments_per_group: blocks_per_group,
             inodes_per_group,
             last_mount_timestamp: 0,
-            last_write_timestamp: 0,
+            last_write_timestamp: create_timestamp,
             mount_count_since_fsck: 0,
             mount_count_before_fsck: DEFAULT_FSCK_MOUNT_COUNT, // TODO take from param
             signature: EXT2_SIGNATURE,
@@ -588,7 +587,7 @@ impl FSFactory for Ext2Factory {
             dtime: 0,
             gid: 0,
             hard_links_count: 2,
-            used_sectors: 0,
+            used_sectors: (block_size / 512) as _,
             flags: 0,
             os_specific_0: 0,
             direct_block_ptrs: [0; 12],
@@ -609,7 +608,7 @@ impl FSFactory for Ext2Factory {
         dev.seek(SeekFrom::Start(entries_block_off))?;
         let self_entry = DirectoryEntry {
             inode: root_inode_id.into(),
-            total_size: (size_of::<DirectoryEntry>() + 1) as _,
+            total_size: (size_of::<DirectoryEntry>() + 8) as _,
             name_length_lo: 1,
             name_length_hi: 0,
         };
@@ -617,7 +616,7 @@ impl FSFactory for Ext2Factory {
         dev.write_all(b".")?;
         let parent_entry = DirectoryEntry {
             inode: root_inode_id.into(),
-            total_size: (size_of::<DirectoryEntry>() + 2) as _,
+            total_size: (block_size - (size_of::<DirectoryEntry>() + 8) as u64) as _,
             name_length_lo: 2,
             name_length_hi: 0,
         };
@@ -671,8 +670,10 @@ mod test {
         let factory = Ext2Factory::default();
         factory.create(&mut dev).unwrap();
 
+        assert!(factory.is_present(&mut dev).unwrap());
+
         let status = Command::new("fsck.ext2")
-            .arg("-fn")
+            .arg("-fnv")
             .arg(dev_path)
             .status()
             .unwrap();
