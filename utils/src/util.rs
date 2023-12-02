@@ -1,6 +1,6 @@
 //! This module implements utility functions.
 
-use std::ffi::CStr;
+use std::ffi::{c_char, CStr};
 use std::fmt;
 use std::mem::size_of;
 use std::ops::Add;
@@ -13,29 +13,33 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-/// Returns the current timestamp since the Unix epoch.
-pub fn get_timestamp() -> Duration {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("System clock panic!")
-}
-
 /// Reinterprets the given reference as a slice.
 pub fn reinterpret<T>(val: &T) -> &[u8] {
     unsafe { slice::from_raw_parts(val as *const _ as *const u8, size_of::<T>()) }
 }
 
+/// Turns the given buffer into a [`String`].
+pub fn array_to_string(buf: &[c_char]) -> String {
+    buf.into_iter()
+        .take_while(|b| **b != 0)
+        .map(|b| (*b) as u8 as char)
+        .collect()
+}
+
 /// Returns the hostname of the system.
 pub fn get_hostname() -> String {
     let mut hostname: [i8; 4096] = [0; 4096];
-
     unsafe {
         libc::gethostname(hostname.as_mut_ptr() as _, hostname.len());
-        CStr::from_ptr(hostname.as_ptr())
-            .to_str()
-            .unwrap()
-            .to_owned()
+        array_to_string(&hostname)
     }
+}
+
+/// Returns the current timestamp since the Unix epoch.
+pub fn get_timestamp() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("System clock panic!")
 }
 
 /// Executes the closure `f`.
@@ -46,15 +50,19 @@ pub fn get_hostname() -> String {
 /// `d`.
 pub fn exec_wait<T, F: FnOnce() -> T>(d: Duration, f: F) -> T {
     let start = get_timestamp();
-
     let result = f();
-
     // Waiting until the given amount of time is spent
     while get_timestamp() < start + d {
         thread::sleep(Duration::from_millis(1));
     }
-
     result
+}
+
+/// Fills the given buffer with random bytes.
+pub fn get_random(buf: &mut [u8]) {
+    unsafe {
+        libc::getrandom(buf.as_mut_ptr() as _, buf.len(), 0);
+    }
 }
 
 /// Computes ceil(n0 / n1) without using floating point numbers.

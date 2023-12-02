@@ -1,3 +1,4 @@
+#![feature(int_roundings)]
 //! The `mkfs` tool allows to create a filesystem on a device.
 
 mod ext2;
@@ -65,9 +66,7 @@ pub trait FSFactory {
     fn is_present(&self, path: &Path, dev: &mut File) -> io::Result<bool>;
 
     /// Creates the filesystem on the given device `dev`.
-    ///
-    /// `path` is the path to the device.
-    fn create(&self, path: &Path, dev: &mut File) -> io::Result<()>;
+    fn create(&self, dev: &mut File) -> io::Result<()>;
 }
 
 fn main() {
@@ -122,7 +121,7 @@ fn main() {
         }
     }
 
-    factory.create(&device_path, &mut file).unwrap_or_else(|e| {
+    factory.create(&mut file).unwrap_or_else(|e| {
         eprintln!("{}: failed to create filesystem: {}", args.prog, e);
         exit(1);
     });

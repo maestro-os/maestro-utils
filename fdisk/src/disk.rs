@@ -5,7 +5,7 @@ use libc::c_long;
 use libc::ioctl;
 use std::fmt;
 use std::fs;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::Error;
 use std::os::fd::AsRawFd;
@@ -22,6 +22,8 @@ pub struct Disk {
     dev_path: PathBuf,
     /// The size of the disk in number of sectors.
     size: u64,
+    /// The open device.
+    dev: File,
 
     /// The partition table.
     pub partition_table: PartitionTable,
@@ -56,23 +58,23 @@ impl Disk {
     ///
     /// If the path doesn't point to a valid device, the function returns None.
     pub fn read(dev_path: PathBuf) -> io::Result<Option<Self>> {
-        let Ok(size) = utils::disk::get_disk_size(&dev_path) else {
+        let mut dev = OpenOptions::new().read(true).write(true).open(&dev_path)?;
+        let Ok(size) = utils::disk::get_disk_size(&dev) else {
             return Ok(None);
         };
-
-        let partition_table = PartitionTable::read(&dev_path, size)?;
-
+        let partition_table = PartitionTable::read(&mut dev, size)?;
         Ok(Some(Self {
             dev_path,
             size,
+            dev,
 
             partition_table,
         }))
     }
 
     /// Writes the partition table to the disk.
-    pub fn write(&self) -> io::Result<()> {
-        self.partition_table.write(&self.dev_path, self.size)
+    pub fn write(&mut self) -> io::Result<()> {
+        self.partition_table.write(&mut self.dev, self.size)
     }
 
     /// Lists disks present on the system.
@@ -81,14 +83,12 @@ impl Disk {
             .filter_map(|dev| match dev {
                 Ok(dev) => {
                     let dev_path = dev.path();
-
                     if Self::is_valid(&dev_path) {
                         Some(Ok(dev_path))
                     } else {
                         None
                     }
                 }
-
                 Err(e) => Some(Err(e)),
             })
             .collect()
@@ -108,35 +108,30 @@ impl Disk {
 impl fmt::Display for Disk {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sector_size = 512; // TODO check if this value can be different
-
         let byte_size = self.size * sector_size;
 
         writeln!(
             fmt,
-            "Disk {}: {}, {} bytes, {} sectors",
+            "Disk {}: {}, {byte_size} bytes, {} sectors",
             self.dev_path.display(),
             ByteSize(byte_size),
-            byte_size,
             self.size
         )?;
-        writeln!(fmt, "Disk model: TODO")?;
+        writeln!(fmt, "Disk model: TODO")?; // TODO
         writeln!(
             fmt,
-            "Units: sectors of 1 * {} = {} bytes",
-            sector_size, sector_size
+            "Units: sectors of 1 * {sector_size} = {sector_size} bytes",
         )?;
         writeln!(
             fmt,
-            "Sector size (logical/physical): {} bytes / {} bytes",
-            sector_size, sector_size
+            "Sector size (logical/physical): {sector_size} bytes / {sector_size} bytes"
         )?;
         writeln!(
             fmt,
-            "I/O size (minimum/optimal): {} bytes / {} bytes",
-            sector_size, sector_size
+            "I/O size (minimum/optimal): {sector_size} bytes / {sector_size} bytes",
         )?;
         writeln!(fmt, "Disklabel type: {}", self.partition_table.table_type)?;
-        writeln!(fmt, "Disk identifier: TODO")?;
+        writeln!(fmt, "Disk identifier: TODO")?; // TODO
 
         if !self.partition_table.partitions.is_empty() {
             writeln!(fmt, "\nDevice\tStart\tEnd\tSectors\tSize\tType")?;
@@ -145,7 +140,7 @@ impl fmt::Display for Disk {
         for p in &self.partition_table.partitions {
             writeln!(
                 fmt,
-                "/dev/TODO\t{}\t{}\t{}\t{}\tTODO",
+                "/dev/TODO\t{}\t{}\t{}\t{}\tTODO", // TODO
                 p.start,
                 p.start + p.size,
                 p.size,
@@ -160,11 +155,9 @@ impl fmt::Display for Disk {
 /// Makes the kernel read the partition table for the given device.
 pub fn read_partitions(path: &Path) -> io::Result<()> {
     let dev = File::open(path)?;
-
     let ret = unsafe { ioctl(dev.as_raw_fd(), BLKRRPART as _, 0) };
     if ret < 0 {
         return Err(Error::last_os_error());
     }
-
     Ok(())
 }

@@ -1336,27 +1336,24 @@ pub struct PartitionTable {
 }
 
 impl PartitionTable {
-    /// Reads the partition table from the disk device at the given path.
+    /// Reads the partition table from the given device file.
     ///
     /// Arguments:
-    /// - `path` is the path to the device.
+    /// - `dev` is the device to read from.
     /// - `sectors_count` is the number of sectors on the device.
     ///
+    /// The cursor of the device might be changed by the function.
+    ///
     /// If the table is invalid, the function returns an empty MBR table.
-    pub fn read(path: &Path, sectors_count: u64) -> io::Result<Self> {
-        let mut file = File::open(path)?;
-
-        let partition_types = vec![PartitionTableType::GPT, PartitionTableType::MBR];
-
-        for t in partition_types {
-            if let Some(partitions) = t.read(&mut file, sectors_count)? {
+    pub fn read(dev: &mut File, sectors_count: u64) -> io::Result<Self> {
+        for t in [PartitionTableType::GPT, PartitionTableType::MBR] {
+            if let Some(partitions) = t.read(dev, sectors_count)? {
                 return Ok(PartitionTable {
                     table_type: t,
                     partitions,
                 });
             }
         }
-
         Ok(PartitionTable {
             table_type: PartitionTableType::MBR,
             partitions: vec![],
@@ -1366,12 +1363,10 @@ impl PartitionTable {
     /// Writes the partition table to the disk device.
     ///
     /// Arguments:
-    /// - `path` is the path to the device.
+    /// - `dev` is the device to write on.
     /// - `sectors_count` is the number of sectors on the device.
-    pub fn write(&self, path: &Path, sectors_count: u64) -> io::Result<()> {
-        let mut file = OpenOptions::new().write(true).open(path)?;
-        self.table_type
-            .write(&mut file, &self.partitions, sectors_count)
+    pub fn write(&self, dev: &mut File, sectors_count: u64) -> io::Result<()> {
+        self.table_type.write(dev, &self.partitions, sectors_count)
     }
 
     /// Serializes a partitions list into a sfdisk script.

@@ -2,13 +2,11 @@
 
 use libc::ioctl;
 use std::ffi::c_long;
-use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::Error;
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::FileTypeExt;
-use std::path::Path;
 
 /// ioctl macro: Command.
 macro_rules! ioc {
@@ -29,20 +27,15 @@ macro_rules! ior {
 const BLKGETSIZE64: c_long = ior!(0x12, 114, u64);
 
 /// Returns the number of sectors on the given device.
-pub fn get_disk_size(path: &Path) -> io::Result<u64> {
-    let mut size = 0;
-
-    let metadata = fs::metadata(path)?;
+pub fn get_disk_size(dev: &File) -> io::Result<u64> {
+    let metadata = dev.metadata()?;
     let file_type = metadata.file_type();
-
     if file_type.is_block_device() || file_type.is_char_device() {
-        let dev = File::open(path)?;
-
+        let mut size = 0;
         let ret = unsafe { ioctl(dev.as_raw_fd(), BLKGETSIZE64 as _, &mut size) };
         if ret < 0 {
             return Err(Error::last_os_error());
         }
-
         Ok(size / 512)
     } else if file_type.is_file() {
         Ok(metadata.len() / 512)
