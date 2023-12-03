@@ -1,11 +1,8 @@
 //! This module implements utility functions.
 
-use std::ffi::{c_char, CStr};
+use std::ffi::c_char;
 use std::fmt;
 use std::mem::size_of;
-use std::ops::Add;
-use std::ops::Div;
-use std::ops::Rem;
 use std::ops::Shl;
 use std::slice;
 use std::thread;

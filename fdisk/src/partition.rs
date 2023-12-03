@@ -5,7 +5,6 @@ use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
 use std::fs::File;
-use std::fs::OpenOptions;
 use std::io;
 use std::io::Read;
 use std::io::Seek;

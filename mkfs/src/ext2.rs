@@ -652,7 +652,7 @@ mod test {
             .open(&path)?;
         let sector_size = 512;
         let buf = vec![0; sector_size];
-        for i in 0..(size / sector_size) {
+        for _ in 0..(size / sector_size) {
             dev.write_all(&buf)?;
         }
         dev.seek(SeekFrom::Start(0))?;
