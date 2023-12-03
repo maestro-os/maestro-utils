@@ -65,19 +65,6 @@ pub fn get_random(buf: &mut [u8]) {
     }
 }
 
-/// Computes ceil(n0 / n1) without using floating point numbers.
-#[inline(always)]
-pub fn ceil_division<T>(n0: T, n1: T) -> T
-where
-    T: From<u8> + Copy + Add<Output = T> + Div<Output = T> + Rem<Output = T> + PartialEq,
-{
-    if (n0 % n1) != T::from(0) {
-        (n0 / n1) + T::from(1)
-    } else {
-        n0 / n1
-    }
-}
-
 /// Computes 2^^n on unsigned integers (where `^^` is an exponent).
 ///
 /// If n < 0, the behaviour is undefined.

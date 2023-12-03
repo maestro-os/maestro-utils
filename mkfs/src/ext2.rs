@@ -13,7 +13,6 @@ use std::mem::size_of;
 use std::num::NonZeroU32;
 use std::slice;
 use utils::util;
-use utils::util::ceil_division;
 use utils::util::get_timestamp;
 use utils::util::log2;
 use utils::util::reinterpret;
@@ -497,10 +496,8 @@ impl FSFactory for Ext2Factory {
         };
 
         let bgdt_off = (SUPERBLOCK_OFFSET / block_size) + 1;
-        let bgdt_size = ceil_division(
-            groups_count as u64 * size_of::<BlockGroupDescriptor>() as u64,
-            block_size,
-        );
+        let bgdt_size =
+            (groups_count as u64 * size_of::<BlockGroupDescriptor>() as u64).div_ceil(block_size);
         let bgdt_end = bgdt_off + bgdt_size;
 
         let block_usage_bitmap_size = blocks_per_group.div_ceil((block_size * 8) as _);
