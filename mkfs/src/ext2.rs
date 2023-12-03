@@ -175,7 +175,7 @@ struct Superblock {
 
 impl Superblock {
     /// Returns the size of a block.
-    pub fn get_block_size(&self) -> u32 {
+    pub fn get_block_size(&self) -> u64 {
         util::pow2(self.s_log_block_size + 10) as _
     }
 
@@ -205,7 +205,6 @@ struct BlockGroupDescriptor {
     bg_free_inodes_count: u16,
     /// Number of directories in group.
     bg_used_dirs_count: u16,
-
     /// Structure padding.
     _padding: [u8; 14],
 }
@@ -508,16 +507,16 @@ impl FSFactory for Ext2Factory {
 
         // Write block groups
         for i in 0..groups_count {
-            let block_usage_bitmap_addr = bgdt_end as u32 + i * metadata_size;
-            let inode_usage_bitmap_addr = block_usage_bitmap_addr + block_usage_bitmap_size;
+            let bg_block_bitmap = bgdt_end as u32 + i * metadata_size;
+            let bg_inode_bitmap = bg_block_bitmap + block_usage_bitmap_size;
+            let bg_inode_table = bg_inode_bitmap + inode_usage_bitmap_size;
             let mut bgd = BlockGroupDescriptor {
-                bg_block_bitmap: block_usage_bitmap_addr,
-                bg_inode_bitmap: inode_usage_bitmap_addr,
-                bg_inode_table: inode_usage_bitmap_addr + inode_usage_bitmap_size,
+                bg_block_bitmap,
+                bg_inode_bitmap,
+                bg_inode_table,
                 bg_free_blocks_count: blocks_per_group as _,
                 bg_free_inodes_count: inodes_per_group as _,
                 bg_used_dirs_count: 0,
-
                 _padding: [0; 14],
             };
 
@@ -528,7 +527,7 @@ impl FSFactory for Ext2Factory {
                 used_blocks_end.saturating_sub(begin_block),
             );
             fill_bitmap(
-                bgd.bg_block_bitmap as u64 * block_size,
+                bg_block_bitmap as u64 * block_size,
                 block_usage_bitmap_size as usize * block_size as usize,
                 used_blocks_count as usize,
                 dev,
@@ -544,7 +543,7 @@ impl FSFactory for Ext2Factory {
                     .saturating_sub(begin_inode),
             );
             fill_bitmap(
-                bgd.bg_inode_bitmap as u64 * block_size,
+                bg_inode_bitmap as u64 * block_size,
                 inode_usage_bitmap_size as usize * block_size as usize,
                 used_inodes_count as usize,
                 dev,
@@ -563,7 +562,7 @@ impl FSFactory for Ext2Factory {
         }
 
         // Ensure the block size is sufficient to fit the `.` and `..` entries of the root directory
-        // This is normally enforced by the size of the superblock, which is larger
+        // This should be enforced by the size of the superblock, which is larger
         assert!(block_size >= ((size_of::<DirectoryEntry>() + 8) * 2) as u64);
         // Prepare root inode for `.` and `..` entries
         let root_size_low = (block_size & 0xffffffff) as u32;
@@ -580,7 +579,7 @@ impl FSFactory for Ext2Factory {
             i_mtime: create_timestamp,
             i_dtime: 0,
             i_gid: 0,
-            i_links_count: 2,
+            i_links_count: 2, // `.` and `..` entries
             i_blocks: (block_size / 512) as _,
             i_flags: 0,
             i_osd1: 0,
