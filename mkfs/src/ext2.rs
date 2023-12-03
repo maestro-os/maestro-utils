@@ -83,91 +83,91 @@ const ROOT_INODE: u32 = 2;
 #[repr(C, packed)]
 struct Superblock {
     /// Total number of inodes in the filesystem.
-    total_inodes: u32,
+    s_inodes_count: u32,
     /// Total number of blocks in the filesystem.
-    total_blocks: u32,
+    s_blocks_count: u32,
     /// Number of blocks reserved for the superuser.
-    superuser_blocks: u32,
+    s_r_blocks_count: u32,
     /// Total number of unallocated blocks.
-    total_unallocated_blocks: u32,
+    s_free_blocks_count: u32,
     /// Total number of unallocated inodes.
-    total_unallocated_inodes: u32,
+    s_free_inodes_count: u32,
     /// Block number of the block containing the superblock.
-    superblock_block_number: u32,
+    s_first_data_block: u32,
     /// log2(block_size) - 10
-    block_size_log: u32,
+    s_log_block_size: u32,
     /// log2(fragment_size) - 10
-    fragment_size_log: u32,
+    s_frag_log_size: u32,
     /// The number of blocks per block group.
-    blocks_per_group: u32,
+    s_blocks_per_group: u32,
     /// The number of fragments per block group.
-    fragments_per_group: u32,
+    s_frags_per_group: u32,
     /// The number of inodes per block group.
-    inodes_per_group: u32,
+    s_inodes_per_group: u32,
     /// The timestamp of the last mount operation.
-    last_mount_timestamp: u32,
+    s_mtime: u32,
     /// The timestamp of the last write operation.
-    last_write_timestamp: u32,
+    s_wtime: u32,
     /// The number of mounts since the last consistency check.
-    mount_count_since_fsck: u16,
+    s_mnt_count: u16,
     /// The number of mounts allowed before a consistency check must be done.
-    mount_count_before_fsck: u16,
+    s_max_mnt_count: u16,
     /// The ext2 signature.
-    signature: u16,
+    s_magic: u16,
     /// The filesystem's state.
-    fs_state: u16,
+    s_state: u16,
     /// The action to perform when an error is detected.
-    error_action: u16,
+    s_errors: u16,
     /// The minor version.
-    minor_version: u16,
+    s_minor_rev_level: u16,
     /// The timestamp of the last consistency check.
-    last_fsck_timestamp: u32,
+    s_lastcheck: u32,
     /// The interval between mandatory consistency checks.
-    fsck_interval: u32,
+    s_checkinterval: u32,
     /// The id os the operating system from which the filesystem was created.
-    os_id: u32,
+    s_creator_os: u32,
     /// The major version.
-    major_version: u32,
+    s_rev_level: u32,
     /// The UID of the user that can use reserved blocks.
-    uid_reserved: u16,
+    s_def_resuid: u16,
     /// The GID of the group that can use reserved blocks.
-    gid_reserved: u16,
+    s_def_resgid: u16,
 
     // Extended superblock fields
     /// The first non reserved inode
-    first_non_reserved_inode: u32,
+    s_first_ino: u32,
     /// The size of the inode structure in bytes.
-    inode_size: u16,
+    s_inode_size: u16,
     /// The block group containing the superblock.
-    superblock_group: u16,
+    s_block_group_nr: u16,
     /// Optional features for the implementation to support.
-    optional_features: u32,
+    s_feature_compat: u32,
     /// Required features for the implementation to support.
-    required_features: u32,
+    s_feature_incompat: u32,
     /// Required features for the implementation to support for writing.
-    write_required_features: u32,
-    /// The filesystem id.
-    filesystem_id: [u8; 16],
+    s_feature_ro_compat: u32,
+    /// The filesystem UUID.
+    s_uuid: [u8; 16],
     /// The volume name.
-    volume_name: [u8; 16],
+    s_volume_name: [u8; 16],
     /// The path the volume was last mounted to.
-    last_mount_path: [u8; 64],
+    s_last_mounted: [u8; 64],
     /// Used compression algorithms.
-    compression_algorithms: u32,
+    s_algo_bitmap: u32,
     /// The number of blocks to preallocate for files.
-    files_preallocate_count: u8,
+    s_prealloc_blocks: u8,
     /// The number of blocks to preallocate for directories.
-    directories_preallocate_count: u8,
+    s_prealloc_dir_blocks: u8,
     /// Unused.
     _unused: u16,
-    /// The journal ID.
-    journal_id: [u8; 16],
+    /// The journal UUID.
+    s_journal_uuid: [u8; 16],
     /// The journal inode.
-    journal_inode: u32,
+    s_journal_inum: u32,
     /// The journal device.
-    journal_device: u32,
+    s_journal_dev: u32,
     /// The head of orphan inodes list.
-    orphan_inode_head: u32,
+    s_last_orphan: u32,
 
     /// Structure padding.
     _padding: [u8; 788],
@@ -176,13 +176,13 @@ struct Superblock {
 impl Superblock {
     /// Returns the size of a block.
     pub fn get_block_size(&self) -> u32 {
-        util::pow2(self.block_size_log + 10) as _
+        util::pow2(self.s_log_block_size + 10) as _
     }
 
     /// Returns the size of an inode.
     pub fn get_inode_size(&self) -> usize {
-        if self.major_version >= 1 {
-            self.inode_size as _
+        if self.s_rev_level >= 1 {
+            self.s_inode_size as _
         } else {
             128
         }
@@ -194,17 +194,17 @@ impl Superblock {
 #[repr(C, packed)]
 struct BlockGroupDescriptor {
     /// The block address of the block usage bitmap.
-    block_usage_bitmap_addr: u32,
+    bg_block_bitmap: u32,
     /// The block address of the inode usage bitmap.
-    inode_usage_bitmap_addr: u32,
+    bg_inode_bitmap: u32,
     /// Starting block address of inode table.
-    inode_table_start_addr: u32,
+    bg_inode_table: u32,
     /// Number of unallocated blocks in group.
-    unallocated_blocks_number: u16,
+    bg_free_blocks_count: u16,
     /// Number of unallocated inodes in group.
-    unallocated_inodes_number: u16,
+    bg_free_inodes_count: u16,
     /// Number of directories in group.
-    directories_number: u16,
+    bg_used_dirs_count: u16,
 
     /// Structure padding.
     _padding: [u8; 14],
@@ -249,53 +249,50 @@ impl BlockGroupDescriptor {
     }
 }
 
-/// An inode represents a file in the filesystem. The name of the file is not
-/// included in the inode but in the directory entry associated with it since
-/// several entries can refer to the same inode (hard links).
+/// An inode represents a file in the filesystem.
+///
+/// The name of the file is not included in the inode but in the directory entry associated with it
+/// since several entries can refer to the same inode (hard links).
 #[repr(C, packed)]
 struct INode {
     /// Type and permissions.
-    mode: u16,
+    i_mode: u16,
     /// User ID.
-    uid: u16,
+    i_uid: u16,
     /// Lower 32 bits of size in bytes.
-    size_low: u32,
-    /// Timestamp of the last modification of the metadata.
-    ctime: u32,
-    /// Timestamp of the last modification of the content.
-    mtime: u32,
+    i_size: u32,
     /// Timestamp of the last access.
-    atime: u32,
+    i_atime: u32,
+    /// Timestamp of inode creation.
+    i_ctime: u32,
+    /// Timestamp of the last modification.
+    i_mtime: u32,
     /// Timestamp of the deletion.
-    dtime: u32,
+    i_dtime: u32,
     /// Group ID.
-    gid: u16,
+    i_gid: u16,
     /// The number of hard links to this inode.
-    hard_links_count: u16,
+    i_links_count: u16,
     /// The number of sectors used by this inode.
-    used_sectors: u32,
+    i_blocks: u32,
     /// INode flags.
-    flags: u32,
+    i_flags: u32,
     /// OS-specific value.
-    os_specific_0: u32,
+    i_osd1: u32,
     /// Direct block pointers.
-    direct_block_ptrs: [u32; 12],
-    /// Simply indirect block pointer.
-    singly_indirect_block_ptr: u32,
-    /// Doubly indirect block pointer.
-    doubly_indirect_block_ptr: u32,
-    /// Triply indirect block pointer.
-    triply_indirect_block_ptr: u32,
+    i_block: [u32; 15],
     /// Generation number.
-    generation: u32,
+    i_generation: u32,
     /// The file's ACL.
-    extended_attributes_block: u32,
+    i_file_acl: u32,
     /// Higher 32 bits of size in bytes.
-    size_high: u32,
+    ///
+    /// The name of the variable is incoherent with its purpose.
+    i_dir_acl: u32,
     /// Block address of fragment.
-    fragment_addr: u32,
+    i_faddr: u32,
     /// OS-specific value.
-    os_specific_1: [u8; 12],
+    _padding: [u8; 12],
 }
 
 impl INode {
@@ -312,9 +309,9 @@ impl INode {
         let inode_size = superblock.get_inode_size() as u64;
 
         // The block group the inode is located in
-        let blk_grp = (i - 1) / superblock.inodes_per_group;
+        let blk_grp = (i - 1) / superblock.s_inodes_per_group;
         // The offset of the inode in the block group's bitfield
-        let inode_grp_off = (i - 1) % superblock.inodes_per_group;
+        let inode_grp_off = (i - 1) % superblock.s_inodes_per_group;
         // The offset of the inode's block
         let inode_table_blk_off = (inode_grp_off as u64 * inode_size) / blk_size;
         // The offset of the inode in the block
@@ -323,7 +320,7 @@ impl INode {
         let bgd = BlockGroupDescriptor::read(blk_grp, superblock, dev)?;
 
         // The block containing the inode
-        let blk = bgd.inode_table_start_addr as u64 + inode_table_blk_off;
+        let blk = bgd.bg_inode_table as u64 + inode_table_blk_off;
 
         // The offset of the inode on the disk
         Ok((blk * blk_size) + inode_blk_off)
@@ -342,11 +339,11 @@ pub struct DirectoryEntry {
     /// The inode associated with the entry.
     inode: u32,
     /// The total size of the entry.
-    total_size: u16,
+    rec_len: u16,
     /// Name length least-significant bits.
-    name_length_lo: u8,
+    name_len: u8,
     /// Name length most-significant bits or type indicator (if enabled).
-    name_length_hi: u8,
+    file_type: u8,
 }
 
 /// Fills the given bitmap.
@@ -404,7 +401,7 @@ impl FSFactory for Ext2Factory {
         dev.seek(SeekFrom::Start(SUPERBLOCK_OFFSET))?;
         dev.read_exact(slice)?;
 
-        Ok(superblock.signature == EXT2_SIGNATURE)
+        Ok(superblock.s_magic == EXT2_SIGNATURE)
     }
 
     fn create(&self, dev: &mut File) -> io::Result<()> {
@@ -448,49 +445,49 @@ impl FSFactory for Ext2Factory {
         });
 
         let mut superblock = Superblock {
-            total_inodes,
-            total_blocks,
-            superuser_blocks: 0,
-            total_unallocated_blocks: 0,
-            total_unallocated_inodes: 0,
-            superblock_block_number: (SUPERBLOCK_OFFSET / block_size) as _,
-            block_size_log: block_size_log - 10,
-            fragment_size_log: block_size_log - 10,
-            blocks_per_group,
-            fragments_per_group: blocks_per_group,
-            inodes_per_group,
-            last_mount_timestamp: 0,
-            last_write_timestamp: create_timestamp,
-            mount_count_since_fsck: 0,
-            mount_count_before_fsck: DEFAULT_FSCK_MOUNT_COUNT, // TODO take from param
-            signature: EXT2_SIGNATURE,
-            fs_state: FS_STATE_CLEAN,
-            error_action: ERR_ACTION_READ_ONLY,
-            minor_version: 1,
-            last_fsck_timestamp: create_timestamp,
-            fsck_interval: DEFAULT_FSCK_INTERVAL, // TODO take from param
-            os_id: 0,
-            major_version: 1,
-            uid_reserved: 0,
-            gid_reserved: 0,
+            s_inodes_count: total_inodes,
+            s_blocks_count: total_blocks,
+            s_r_blocks_count: 0,
+            s_free_blocks_count: 0,
+            s_free_inodes_count: 0,
+            s_first_data_block: (SUPERBLOCK_OFFSET / block_size) as _,
+            s_log_block_size: block_size_log - 10,
+            s_frag_log_size: block_size_log - 10,
+            s_blocks_per_group: blocks_per_group,
+            s_frags_per_group: blocks_per_group,
+            s_inodes_per_group: inodes_per_group,
+            s_mtime: 0,
+            s_wtime: create_timestamp,
+            s_mnt_count: 0,
+            s_max_mnt_count: DEFAULT_FSCK_MOUNT_COUNT, // TODO take from param
+            s_magic: EXT2_SIGNATURE,
+            s_state: FS_STATE_CLEAN,
+            s_errors: ERR_ACTION_READ_ONLY,
+            s_minor_rev_level: 1,
+            s_lastcheck: create_timestamp,
+            s_checkinterval: DEFAULT_FSCK_INTERVAL, // TODO take from param
+            s_creator_os: 0,
+            s_rev_level: 1,
+            s_def_resuid: 0,
+            s_def_resgid: 0,
 
-            first_non_reserved_inode: 11,
-            inode_size: 128,
-            superblock_group: superblock_group as _,
-            optional_features: 0,
-            required_features: 0,
-            write_required_features: 0,
-            filesystem_id,
-            volume_name,
-            last_mount_path: [0; 64],
-            compression_algorithms: 0,
-            files_preallocate_count: 0,
-            directories_preallocate_count: 0,
+            s_first_ino: 11,
+            s_inode_size: 128,
+            s_block_group_nr: superblock_group as _,
+            s_feature_compat: 0,
+            s_feature_incompat: 0,
+            s_feature_ro_compat: 0,
+            s_uuid: filesystem_id,
+            s_volume_name: volume_name,
+            s_last_mounted: [0; 64],
+            s_algo_bitmap: 0,
+            s_prealloc_blocks: 0,
+            s_prealloc_dir_blocks: 0,
             _unused: 0,
-            journal_id: [0; 16],
-            journal_inode: 0,
-            journal_device: 0,
-            orphan_inode_head: 0,
+            s_journal_uuid: [0; 16],
+            s_journal_inum: 0,
+            s_journal_dev: 0,
+            s_last_orphan: 0,
 
             _padding: [0; 788],
         };
@@ -503,7 +500,7 @@ impl FSFactory for Ext2Factory {
         let block_usage_bitmap_size = blocks_per_group.div_ceil((block_size * 8) as _);
         let inode_usage_bitmap_size = inodes_per_group.div_ceil((block_size * 8) as _);
         let inodes_table_size =
-            (inodes_per_group * superblock.inode_size as u32).div_ceil(block_size as u32);
+            (inodes_per_group * superblock.s_inode_size as u32).div_ceil(block_size as u32);
         let metadata_size = block_usage_bitmap_size + inode_usage_bitmap_size + inodes_table_size;
 
         // Add `1` to count a block for the `.` and `..` entries of root directory
@@ -514,12 +511,12 @@ impl FSFactory for Ext2Factory {
             let block_usage_bitmap_addr = bgdt_end as u32 + i * metadata_size;
             let inode_usage_bitmap_addr = block_usage_bitmap_addr + block_usage_bitmap_size;
             let mut bgd = BlockGroupDescriptor {
-                block_usage_bitmap_addr,
-                inode_usage_bitmap_addr,
-                inode_table_start_addr: inode_usage_bitmap_addr + inode_usage_bitmap_size,
-                unallocated_blocks_number: blocks_per_group as _,
-                unallocated_inodes_number: inodes_per_group as _,
-                directories_number: 0,
+                bg_block_bitmap: block_usage_bitmap_addr,
+                bg_inode_bitmap: inode_usage_bitmap_addr,
+                bg_inode_table: inode_usage_bitmap_addr + inode_usage_bitmap_size,
+                bg_free_blocks_count: blocks_per_group as _,
+                bg_free_inodes_count: inodes_per_group as _,
+                bg_used_dirs_count: 0,
 
                 _padding: [0; 14],
             };
@@ -531,36 +528,36 @@ impl FSFactory for Ext2Factory {
                 used_blocks_end.saturating_sub(begin_block),
             );
             fill_bitmap(
-                bgd.block_usage_bitmap_addr as u64 * block_size,
+                bgd.bg_block_bitmap as u64 * block_size,
                 block_usage_bitmap_size as usize * block_size as usize,
                 used_blocks_count as usize,
                 dev,
             )?;
-            bgd.unallocated_blocks_number -= used_blocks_count as u16;
+            bgd.bg_free_blocks_count -= used_blocks_count as u16;
 
             // Fill inodes bitmap
             let begin_inode = i * inodes_per_group;
             let used_inodes_count = min(
                 inodes_per_group,
                 superblock
-                    .first_non_reserved_inode
+                    .s_first_ino
                     .saturating_sub(begin_inode),
             );
             fill_bitmap(
-                bgd.inode_usage_bitmap_addr as u64 * block_size,
+                bgd.bg_inode_bitmap as u64 * block_size,
                 inode_usage_bitmap_size as usize * block_size as usize,
                 used_inodes_count as usize,
                 dev,
             )?;
-            bgd.unallocated_inodes_number -= used_inodes_count as u16;
+            bgd.bg_free_inodes_count -= used_inodes_count as u16;
 
             // If containing the root inode
             if (begin_inode..(begin_inode + inodes_per_group)).contains(&ROOT_INODE) {
-                bgd.directories_number += 1;
+                bgd.bg_used_dirs_count += 1;
             }
 
-            superblock.total_unallocated_blocks += bgd.unallocated_blocks_number as u32;
-            superblock.total_unallocated_inodes += bgd.unallocated_inodes_number as u32;
+            superblock.s_free_blocks_count += bgd.bg_free_blocks_count as u32;
+            superblock.s_free_inodes_count += bgd.bg_free_inodes_count as u32;
 
             bgd.write(i, &superblock, dev)?;
         }
@@ -575,47 +572,44 @@ impl FSFactory for Ext2Factory {
         // Create root directory
         let root_inode_id = NonZeroU32::new(ROOT_INODE).unwrap();
         let mut root_dir = INode {
-            mode: 0x4000 | 0o755,
-            uid: 0,
-            size_low: root_size_low,
-            ctime: create_timestamp,
-            mtime: create_timestamp,
-            atime: create_timestamp,
-            dtime: 0,
-            gid: 0,
-            hard_links_count: 2,
-            used_sectors: (block_size / 512) as _,
-            flags: 0,
-            os_specific_0: 0,
-            direct_block_ptrs: [0; 12],
-            singly_indirect_block_ptr: 0,
-            doubly_indirect_block_ptr: 0,
-            triply_indirect_block_ptr: 0,
-            generation: 0,
-            extended_attributes_block: 0,
-            size_high: root_size_high,
-            fragment_addr: 0,
-            os_specific_1: [0; 12],
+            i_mode: 0x4000 | 0o755,
+            i_uid: 0,
+            i_size: root_size_low,
+            i_atime: create_timestamp,
+            i_ctime: create_timestamp,
+            i_mtime: create_timestamp,
+            i_dtime: 0,
+            i_gid: 0,
+            i_links_count: 2,
+            i_blocks: (block_size / 512) as _,
+            i_flags: 0,
+            i_osd1: 0,
+            i_block: [0; 15],
+            i_generation: 0,
+            i_file_acl: 0,
+            i_dir_acl: root_size_high,
+            i_faddr: 0,
+            _padding: [0; 12],
         };
 
         // Create `.` and `..` entries for the root directory
         let entries_block = used_blocks_end - 1;
         let entries_block_off = entries_block as u64 * block_size as u64;
-        root_dir.direct_block_ptrs[0] = entries_block;
+        root_dir.i_block[0] = entries_block;
         dev.seek(SeekFrom::Start(entries_block_off))?;
         let self_entry = DirectoryEntry {
             inode: root_inode_id.into(),
-            total_size: (size_of::<DirectoryEntry>() + 8) as _,
-            name_length_lo: 1,
-            name_length_hi: 0,
+            rec_len: (size_of::<DirectoryEntry>() + 8) as _,
+            name_len: 1,
+            file_type: 0, // TODO fill with type when driver is compatible
         };
         dev.write_all(reinterpret(&self_entry))?;
         dev.write_all(b".")?;
         let parent_entry = DirectoryEntry {
             inode: root_inode_id.into(),
-            total_size: (block_size - (size_of::<DirectoryEntry>() + 8) as u64) as _,
-            name_length_lo: 2,
-            name_length_hi: 0,
+            rec_len: (block_size - (size_of::<DirectoryEntry>() + 8) as u64) as _,
+            name_len: 2,
+            file_type: 0, // TODO fill with type when driver is compatible
         };
         dev.seek(SeekFrom::Start(entries_block_off + 16))?;
         dev.write_all(reinterpret(&parent_entry)).unwrap();

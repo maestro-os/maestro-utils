@@ -1,5 +1,6 @@
-#![feature(int_roundings)]
 //! The `mkfs` tool allows to create a filesystem on a device.
+
+#![feature(int_roundings)]
 
 mod ext2;
 
