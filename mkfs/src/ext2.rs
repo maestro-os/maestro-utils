@@ -538,9 +538,7 @@ impl FSFactory for Ext2Factory {
             let begin_inode = i * inodes_per_group;
             let used_inodes_count = min(
                 inodes_per_group,
-                superblock
-                    .s_first_ino
-                    .saturating_sub(begin_inode),
+                superblock.s_first_ino.saturating_sub(begin_inode),
             );
             fill_bitmap(
                 bg_inode_bitmap as u64 * block_size,
@@ -662,7 +660,7 @@ mod test {
 
         assert!(factory.is_present(&mut dev).unwrap());
 
-		// TODO suspend this test, to be fixed later
+        // TODO suspend this test, to be fixed later
         /*let status = Command::new("fsck.ext2")
             .arg("-fnv")
             .arg(dev_path)
