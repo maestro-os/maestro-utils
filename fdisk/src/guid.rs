@@ -34,7 +34,6 @@ impl FromStr for GUID {
         // Fill array while reordering
         let mut guid = Self([0; 16]);
         for (i, b) in iter {
-            print!("{b:x}, ");
             // Reverse necessary parts
             let index = match i {
                 0..4 => 4 - i - 1,
