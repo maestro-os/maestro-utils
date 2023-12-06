@@ -4,6 +4,7 @@ use crate::crc32;
 use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
+use std::fmt::Display;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -13,7 +14,9 @@ use std::io::Write;
 use std::mem::size_of;
 use std::path::Path;
 use std::slice;
+use std::str::FromStr;
 use utils::prompt::prompt;
+use crate::guid::GUID;
 
 // TODO adapt to disks whose sector size is different than 512
 
@@ -43,83 +46,6 @@ fn translate_lba(lba: i64, storage_size: u64) -> Option<u64> {
         } else {
             None
         }
-    }
-}
-
-/// Type representing a Globally Unique IDentifier.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-#[repr(C, packed)]
-pub struct GUID(pub [u8; 16]);
-
-impl TryFrom<&str> for GUID {
-    type Error = ();
-
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        if s.len() != 36 {
-            return Err(());
-        }
-        if s.chars().any(|c| !c.is_alphanumeric() && c != '-') {
-            return Err(());
-        }
-
-        let mut guid = Self([0; 16]);
-
-        let mut iter = s.chars().filter(|c| *c != '-');
-        let mut i = 0;
-        while let (Some(hi), Some(lo)) = (iter.next(), iter.next()) {
-            let byte = String::from_iter([hi, lo]);
-            // Unwrap cannot fail since characters are checked before
-            let value = u8::from_str_radix(byte.as_str(), 16).unwrap();
-
-            // Reverse necessary parts
-            let index = match i {
-                0..4 => 4 - i - 1,
-                4..6 => 6 - i - 1 + 4,
-                6..8 => 8 - i - 1 + 6,
-                _ => i,
-            };
-
-            guid.0[index] = value;
-            i += 1;
-        }
-
-        Ok(guid)
-    }
-}
-
-impl GUID {
-    /// Generates a random GUID.
-    pub fn random() -> Self {
-        let mut buf = [0; 16];
-        utils::util::get_random(&mut buf);
-        Self(buf)
-    }
-}
-
-impl fmt::Display for GUID {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for i in (0..4).rev() {
-            write!(fmt, "{:02x}", self.0[i])?;
-        }
-        write!(fmt, "-")?;
-
-        for i in 0..2 {
-            for j in (0..2).rev() {
-                write!(fmt, "{:02x}", self.0[4 + i * 2 + j])?;
-            }
-            write!(fmt, "-")?;
-        }
-
-        for i in 8..10 {
-            write!(fmt, "{:02x}", self.0[i])?;
-        }
-        write!(fmt, "-")?;
-
-        for i in 10..16 {
-            write!(fmt, "{:02x}", self.0[i])?;
-        }
-
-        Ok(())
     }
 }
 
@@ -1257,18 +1183,18 @@ impl Default for PartitionType {
     }
 }
 
-impl TryFrom<&str> for PartitionType {
-    type Error = ();
+impl FromStr for PartitionType {
+    type Err = ();
 
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        GUID::try_from(s)
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        GUID::from_str(s)
             .map(Self::GPT)
             .or_else(|_| u8::from_str_radix(s, 16).map(Self::MBR))
             .map_err(|_| ())
     }
 }
 
-impl fmt::Display for PartitionType {
+impl Display for PartitionType {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MBR(n) => write!(fmt, "{n:x}"),
@@ -1377,11 +1303,13 @@ impl PartitionTable {
 
         script
     }
+}
+
+impl FromStr for PartitionTable {
+    type Err = String;
 
     /// Deserializes a partitions list from a given sfdisk script.
-    ///
-    /// The function returns the list of partitions.
-    pub fn deserialize(script: &str) -> Result<Self, String> {
+    fn from_str(script: &str) -> Result<Self, Self::Err> {
         // Skip header
         let mut iter = script.split('\n');
         for line in iter.by_ref() {
@@ -1391,78 +1319,74 @@ impl PartitionTable {
         }
 
         // Parse partitions
-        let mut partitions = vec![];
-        for line in iter {
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            let mut split = line.split(':').skip(1);
-            let Some(values) = split.next() else {
-                return Err("Invalid syntax".to_owned());
-            };
-
-            // Filling partition structure
-            let mut part = Partition::default();
-            for v in values.split(',') {
-                let mut split = v.split('=');
-                let Some(name) = split.next() else {
+        let partitions = iter
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| {
+                let mut split = line.split(':').skip(1);
+                let Some(values) = split.next() else {
                     return Err("Invalid syntax".to_owned());
                 };
 
-                let name = name.trim();
-                let value = split.next().map(str::trim);
+                // Filling partition structure
+                let mut part = Partition::default();
+                for v in values.split(',') {
+                    let mut split = v.split('=');
+                    let Some(name) = split.next() else {
+                        return Err("Invalid syntax".to_owned());
+                    };
 
-                match name {
-                    "start" => {
-                        let Some(val) = value else {
-                            return Err("`start` requires a value".into());
-                        };
-                        let Ok(v) = val.parse() else {
-                            return Err(format!("Invalid value for `start`: {val}"));
-                        };
-                        part.start = v;
+                    let name = name.trim();
+                    let value = split.next().map(str::trim);
+
+                    match name {
+                        "start" => {
+                            let Some(val) = value else {
+                                return Err("`start` requires a value".into());
+                            };
+                            let Ok(v) = val.parse() else {
+                                return Err(format!("Invalid value for `start`: {val}"));
+                            };
+                            part.start = v;
+                        }
+
+                        "size" => {
+                            let Some(val) = value else {
+                                return Err("`size` requires a value".into());
+                            };
+                            let Ok(v) = val.parse() else {
+                                return Err(format!("Invalid value for `size`: {val}"));
+                            };
+                            part.size = v;
+                        }
+
+                        "type" => {
+                            let Some(val) = value else {
+                                return Err("`type` requires a value".into());
+                            };
+                            let Ok(v) = PartitionType::from_str(val) else {
+                                return Err(format!("Invalid value for `type`: {val}"));
+                            };
+                            part.part_type = v;
+                        }
+
+                        "uuid" => {
+                            let Some(val) = value else {
+                                return Err("`uuid` requires a value".into());
+                            };
+                            let Ok(val) = GUID::from_str(val) else {
+                                return Err(format!("Invalid value for `uuid`: {val}"));
+                            };
+                            part.uuid = Some(val);
+                        }
+
+                        "bootable" => part.bootable = true,
+
+                        _ => return Err(format!("Unknown attribute: `{name}`")),
                     }
-
-                    "size" => {
-                        let Some(val) = value else {
-                            return Err("`size` requires a value".into());
-                        };
-                        let Ok(v) = val.parse() else {
-                            return Err(format!("Invalid value for `size`: {val}"));
-                        };
-                        part.size = v;
-                    }
-
-                    "type" => {
-                        let Some(val) = value else {
-                            return Err("`type` requires a value".into());
-                        };
-                        let Ok(v) = val.try_into() else {
-                            return Err(format!("Invalid value for `type`: {val}"));
-                        };
-                        part.part_type = v;
-                    }
-
-                    "uuid" => {
-                        let Some(val) = value else {
-                            return Err("`uuid` requires a value".into());
-                        };
-                        let Ok(val) = val.try_into() else {
-                            return Err(format!("Invalid value for `uuid`: {val}"));
-                        };
-                        part.uuid = Some(val);
-                    }
-
-                    "bootable" => part.bootable = true,
-
-                    _ => return Err(format!("Unknown attribute: `{name}`")),
                 }
-            }
-
-            partitions.push(part);
-        }
-
+                Ok(part)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             table_type: PartitionTableType::MBR, // TODO
             partitions,
@@ -1483,7 +1407,7 @@ mod test {
         };
 
         let script = table0.serialize(&PathBuf::from("/dev/sda"));
-        let table1 = PartitionTable::deserialize(&script).unwrap();
+        let table1 = PartitionTable::from_str(&script).unwrap();
 
         assert_eq!(table0, table1);
     }
@@ -1505,7 +1429,7 @@ mod test {
         };
 
         let script = table0.serialize(&PathBuf::from("/dev/sda"));
-        let table1 = PartitionTable::deserialize(&script).unwrap();
+        let table1 = PartitionTable::from_str(&script).unwrap();
 
         assert_eq!(table0, table1);
     }

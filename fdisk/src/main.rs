@@ -4,8 +4,10 @@
 //! uses scripting instead of prompting.
 
 #![feature(exclusive_range_pattern)]
+#![feature(iter_array_chunks)]
 
 mod crc32;
+mod guid;
 mod disk;
 mod partition;
 
@@ -19,6 +21,7 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
+use std::str::FromStr;
 use utils::prompt::prompt;
 
 /// Structure storing command line arguments.
@@ -132,7 +135,7 @@ fn print_cmd_help() {
 fn import_script(disk: &mut Disk, path: &Path) -> io::Result<()> {
     let script = fs::read_to_string(path)?;
     // TODO handle error
-    disk.partition_table = PartitionTable::deserialize(&script).unwrap();
+    disk.partition_table = PartitionTable::from_str(&script).unwrap();
     Ok(())
 }
 
