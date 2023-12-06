@@ -833,6 +833,7 @@ impl PartitionTableType {
             "Partition number ({first}-{max_partition_count}, default {first}): "
         );
         let partition_number = prompt(Some(&prompt_str), false)
+            .filter(|s| !s.is_empty())
             .map(|s| s.parse::<usize>())
             .transpose()
             .unwrap() // TODO handle error
@@ -845,6 +846,7 @@ impl PartitionTableType {
             "First sector ({first_available}-{last_available}, default {first_available}): ",
         );
         let start = prompt(Some(&prompt_str), false)
+            .filter(|s| !s.is_empty())
             .map(|s| s.parse::<u64>())
             .transpose()
             .unwrap() // TODO handle error
@@ -1038,11 +1040,9 @@ impl PartitionTableType {
                 }
 
                 for (i, p) in partitions.iter().enumerate() {
-                    let partition_type = match p.part_type {
-                        PartitionType::MBR(t) => t,
-                        _ => panic!(),
+                    let PartitionType::MBR(partition_type) = p.part_type else {
+                         panic!("invalid partition type of MBR table");
                     };
-
                     mbr.partitions[i] = MBRPartition {
                         attrs: 0,
                         chs_start: [0; 3],
@@ -1085,8 +1085,6 @@ impl PartitionTableType {
                     sectors_count,
                 )?;
 
-                let disk_guid = GUID::random();
-
                 // Primary table
                 let mut gpt = GPT {
                     signature: [0; 8],
@@ -1098,7 +1096,7 @@ impl PartitionTableType {
                     alternate_hdr_lba: -1,
                     first_usable: 34,
                     last_usable: -34,
-                    disk_guid,
+                    disk_guid: GUID::random(),
                     entries_start: 2,
                     entries_number: partitions.len() as _,
                     entry_size: 128,
@@ -1109,11 +1107,9 @@ impl PartitionTableType {
                 let parts: Vec<GPTEntry> = partitions
                     .iter()
                     .map(|p| {
-                        let partition_type = match p.part_type {
-                            PartitionType::GPT(i) => i,
-                            _ => panic!(),
+                        let PartitionType::GPT(partition_type) = p.part_type else {
+                            panic!("invalid partition type of GPT table");
                         };
-
                         GPTEntry {
                             partition_type,
                             guid: p.uuid.unwrap(),
@@ -1327,7 +1323,7 @@ impl FromStr for PartitionTable {
                     return Err("Invalid syntax".to_owned());
                 };
 
-                // Filling partition structure
+                // Fill partition structure
                 let mut part = Partition::default();
                 for v in values.split(',') {
                     let mut split = v.split('=');
@@ -1406,7 +1402,7 @@ mod test {
             partitions: vec![],
         };
 
-        let script = table0.serialize(&PathBuf::from("/dev/sda"));
+        let script = table0.serialize(Path::new("/dev/sda"));
         let table1 = PartitionTable::from_str(&script).unwrap();
 
         assert_eq!(table0, table1);
@@ -1428,7 +1424,7 @@ mod test {
             }],
         };
 
-        let script = table0.serialize(&PathBuf::from("/dev/sda"));
+        let script = table0.serialize(Path::new("/dev/sda"));
         let table1 = PartitionTable::from_str(&script).unwrap();
 
         assert_eq!(table0, table1);

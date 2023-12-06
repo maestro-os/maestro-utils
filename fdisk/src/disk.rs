@@ -153,11 +153,19 @@ impl fmt::Display for Disk {
 }
 
 /// Makes the kernel read the partition table for the given device.
+///
+/// If called on a non-device file, the function does nothing.
 pub fn read_partitions(path: &Path) -> io::Result<()> {
     let dev = File::open(path)?;
     let ret = unsafe { ioctl(dev.as_raw_fd(), BLKRRPART as _, 0) };
     if ret < 0 {
-        return Err(Error::last_os_error());
+        let err = Error::last_os_error();
+        match err.raw_os_error() {
+            // Inappropriate ioctl for device
+            // This error is ignored because ioctl will fail when called for non-device files
+            Some(25) => {},
+            _ => return Err(err),
+        }
     }
     Ok(())
 }
