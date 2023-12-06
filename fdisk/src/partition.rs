@@ -76,7 +76,6 @@ impl TryFrom<&str> for GUID {
                 0..4 => 4 - i - 1,
                 4..6 => 6 - i - 1 + 4,
                 6..8 => 8 - i - 1 + 6,
-
                 _ => i,
             };
 
@@ -90,13 +89,10 @@ impl TryFrom<&str> for GUID {
 
 impl GUID {
     /// Generates a random GUID.
-    pub fn random() -> io::Result<Self> {
-        let mut rand_dev = File::open("/dev/urandom")?;
-
-        let mut s = Self([0; 16]);
-        rand_dev.read_exact(&mut s.0)?;
-
-        Ok(s)
+    pub fn random() -> Self {
+        let mut buf = [0; 16];
+        utils::util::get_random(&mut buf);
+        Self(buf)
     }
 }
 
@@ -232,7 +228,7 @@ impl PartitionTableType {
     pub fn print_partition_types(&self) {
         match self {
             Self::MBR => {
-                let types = vec![
+                let types = &[
                     (0x00, "Empty"),
                     (0x01, "FAT12"),
                     (0x02, "XENIX root"),
@@ -341,8 +337,7 @@ impl PartitionTableType {
                 let entries_per_line = max(term_width / (max_len + 5), 1);
 
                 for (i, (id, name)) in types.iter().enumerate() {
-                    print!("  {:02x} {:max_len$}", id, name);
-
+                    print!("  {id:02x} {name:max_len$}");
                     if i % entries_per_line == entries_per_line - 1 {
                         println!();
                     }
@@ -350,7 +345,7 @@ impl PartitionTableType {
             }
 
             Self::GPT => {
-                let types = vec![
+                let types = &[
                     ("EFI System", "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"),
                     (
                         "MBR partition scheme",
@@ -880,9 +875,8 @@ impl PartitionTableType {
                     ),
                 ];
                 let max_len = types.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
-
                 for (i, (name, uuid)) in types.iter().enumerate() {
-                    print!("{:3} {:max_len$} {}", i, name, uuid);
+                    print!("{i:3} {name:max_len$} {uuid}");
                 }
             }
         }
@@ -895,13 +889,12 @@ impl PartitionTableType {
             Self::MBR => {
                 // TODO get info from disk, to be passed as argument
                 println!("Partition type");
-                println!("   p   primary (TODO primary, TODO extended, TODO free)");
-                println!("   e   extended (container for logical partitions)");
+                println!("   p   primary (TODO primary, TODO extended, TODO free)"); // TODO
+                println!("   e   extended (container for logical partitions)"); // TODO
 
                 let extended = prompt(Some("Select (default p): "), false)
                     .map(|s| s == "e") // TODO handle invalid prompt (other than `p` and `e`)
                     .unwrap_or(false);
-
                 (extended, 4)
             }
 
@@ -911,8 +904,7 @@ impl PartitionTableType {
         // Ask partition number
         let first = 1; // TODO get from disk
         let prompt_str = format!(
-            "Partition number ({}-{}, default {}): ",
-            first, max_partition_count, first
+            "Partition number ({first}-{max_partition_count}, default {first}): "
         );
         let partition_number = prompt(Some(&prompt_str), false)
             .map(|s| s.parse::<usize>())
@@ -924,8 +916,7 @@ impl PartitionTableType {
         let first_available = 2048; // TODO
         let last_available = 0; // TODO
         let prompt_str = format!(
-            "First sector ({}-{}, default {})",
-            first_available, last_available, first_available
+            "First sector ({first_available}-{last_available}, default {first_available}): ",
         );
         let start = prompt(Some(&prompt_str), false)
             .map(|s| s.parse::<u64>())
@@ -935,8 +926,7 @@ impl PartitionTableType {
 
         // Ask last sector
         let prompt_str = format!(
-            "Last sector, +/-sectors or +/-size{{K,M,G,T,P}} ({}-{}, default {})",
-            start, last_available, last_available
+            "Last sector, +/-sectors or +/-size{{K,M,G,T,P}} ({start}-{last_available}, default {last_available}): ",
         );
         let end = prompt(Some(&prompt_str), false)
             .map(|s| {
@@ -1169,7 +1159,7 @@ impl PartitionTableType {
                     sectors_count,
                 )?;
 
-                let disk_guid = GUID::random()?;
+                let disk_guid = GUID::random();
 
                 // Primary table
                 let mut gpt = GPT {
@@ -1281,8 +1271,8 @@ impl TryFrom<&str> for PartitionType {
 impl fmt::Display for PartitionType {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MBR(n) => write!(fmt, "{:x}", n),
-            Self::GPT(n) => write!(fmt, "{}", n),
+            Self::MBR(n) => write!(fmt, "{n:x}"),
+            Self::GPT(n) => write!(fmt, "{n}"),
         }
     }
 }
@@ -1312,15 +1302,12 @@ impl fmt::Display for Partition {
             "start={}, size={}, type={}",
             self.start, self.size, self.part_type
         )?;
-
         if self.bootable {
             write!(fmt, ", bootable")?;
         }
-
         if let Some(ref uuid) = self.uuid {
-            write!(fmt, ", uuid={}", uuid)?;
+            write!(fmt, ", uuid={uuid}")?;
         }
-
         Ok(())
     }
 }
@@ -1376,16 +1363,16 @@ impl PartitionTable {
     pub fn serialize(&self, dev: &Path) -> String {
         let mut script = String::new();
 
-        // Writing header
+        // Write header
         // TODO label
         // TODO label-id
         script += format!("device: {}\n", dev.display()).as_str();
         script += "unit: sectors\n";
         script += "\n";
 
-        // Writing partitions
+        // Write partitions
         for (i, p) in self.partitions.iter().enumerate() {
-            script += &format!("{}{} : {}\n", dev.display(), i, p);
+            script += &format!("{}{i} : {p}\n", dev.display());
         }
 
         script
@@ -1424,7 +1411,7 @@ impl PartitionTable {
                 };
 
                 let name = name.trim();
-                let value = split.next().map(|s| s.trim());
+                let value = split.next().map(str::trim);
 
                 match name {
                     "start" => {
@@ -1432,9 +1419,8 @@ impl PartitionTable {
                             return Err("`start` requires a value".into());
                         };
                         let Ok(v) = val.parse() else {
-                            return Err(format!("Invalid value for `start`: {}", val));
+                            return Err(format!("Invalid value for `start`: {val}"));
                         };
-
                         part.start = v;
                     }
 
@@ -1443,9 +1429,8 @@ impl PartitionTable {
                             return Err("`size` requires a value".into());
                         };
                         let Ok(v) = val.parse() else {
-                            return Err(format!("Invalid value for `size`: {}", val));
+                            return Err(format!("Invalid value for `size`: {val}"));
                         };
-
                         part.size = v;
                     }
 
@@ -1454,9 +1439,8 @@ impl PartitionTable {
                             return Err("`type` requires a value".into());
                         };
                         let Ok(v) = val.try_into() else {
-                            return Err(format!("Invalid value for `type`: {}", val));
+                            return Err(format!("Invalid value for `type`: {val}"));
                         };
-
                         part.part_type = v;
                     }
 
@@ -1465,15 +1449,14 @@ impl PartitionTable {
                             return Err("`uuid` requires a value".into());
                         };
                         let Ok(val) = val.try_into() else {
-                            return Err(format!("Invalid value for `uuid`: {}", val));
+                            return Err(format!("Invalid value for `uuid`: {val}"));
                         };
-
                         part.uuid = Some(val);
                     }
 
                     "bootable" => part.bootable = true,
 
-                    _ => return Err(format!("Unknown attribute: `{}`", name)),
+                    _ => return Err(format!("Unknown attribute: `{name}`")),
                 }
             }
 

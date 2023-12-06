@@ -45,7 +45,6 @@ impl Args {
         if self.help || self.list {
             return true;
         }
-
         self.disks.len() == 1
     }
 }
@@ -74,8 +73,8 @@ fn parse_args() -> Args {
 ///
 /// `prog` is the name of the current program.
 fn print_usage(prog: &str) {
-    eprintln!("{}: bad usage", prog);
-    eprintln!("Try '{} --help' for more information.", prog);
+    eprintln!("{prog}: bad usage");
+    eprintln!("Try '{prog} --help' for more information.");
 }
 
 /// Prints command help.
@@ -85,7 +84,7 @@ fn print_usage(prog: &str) {
 fn print_help(prog: &str, script: bool) {
     println!();
     println!("Usage:");
-    println!(" {} [options] [disks...]", prog);
+    println!(" {prog} [options] [disks...]");
     println!();
     println!("Prints the list of partitions or modify it.");
     println!();
@@ -134,7 +133,6 @@ fn import_script(disk: &mut Disk, path: &Path) -> io::Result<()> {
     let script = fs::read_to_string(path)?;
     // TODO handle error
     disk.partition_table = PartitionTable::deserialize(&script).unwrap();
-
     Ok(())
 }
 
@@ -148,7 +146,6 @@ fn export_script(disk: &Disk, path: &Path) -> io::Result<()> {
     let serialized = disk.partition_table.serialize(path);
     script_file.write_all(serialized.as_bytes())?;
     script_file.flush()?;
-
     Ok(())
 }
 
@@ -178,7 +175,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
             // TODO insert new partition to disk
         }
 
-        "p" => println!("{}\n", disk),
+        "p" => println!("{disk}\n"),
 
         "t" => {
             // TODO:
@@ -201,8 +198,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
 
                 match import_script(disk, &script_path) {
                     Ok(_) => println!("\nScript successfully applied.\n"),
-
-                    Err(e) => eprintln!("cannot import script {}: {}", script_path.display(), e),
+                    Err(e) => eprintln!("cannot import script {}: {e}", script_path.display()),
                 }
             }
         }
@@ -213,8 +209,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
 
                 match export_script(disk, &script_path) {
                     Ok(_) => println!("\nScript successfully saved.\n"),
-
-                    Err(e) => eprintln!("cannot export script {}: {}", script_path.display(), e),
+                    Err(e) => eprintln!("cannot export script {}: {e}", script_path.display()),
                 }
             }
         }
@@ -231,21 +226,18 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
 
             match disk.write() {
                 Ok(_) => println!("The partition table has been altered."),
-
                 Err(e) => {
-                    eprintln!("cannot write to disk `{}`: {}", disk_path.display(), e);
+                    eprintln!("cannot write to disk `{}`: {e}", disk_path.display());
                     exit(1);
                 }
             }
 
             match disk::read_partitions(disk.get_path()) {
                 Ok(_) => println!("Syncing disks."),
-
                 Err(e) => {
                     eprintln!(
-                        "cannot read partition table from `{}`: {}",
-                        disk_path.display(),
-                        e
+                        "cannot read partition table from `{}`: {e}",
+                        disk_path.display()
                     );
                     exit(1);
                 }
@@ -272,7 +264,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
             //   - Print `Created a new DOS disklabel (identifier: <>)\n`
         }
 
-        _ => eprintln!("{}: unknown command", cmd),
+        _ => eprintln!("{cmd}: unknown command"),
     }
 
     println!();
@@ -298,7 +290,7 @@ fn main() {
                 Ok(disks) => disks.into_iter(),
 
                 Err(e) => {
-                    eprintln!("{}: cannot list disks: {}", args.prog, e);
+                    eprintln!("{}: cannot list disks: {e}", args.prog);
                     exit(1);
                 }
             }
@@ -317,7 +309,7 @@ fn main() {
                 }
 
                 Err(e) => {
-                    eprintln!("{}: cannot open {}: {}", args.prog, path.display(), e);
+                    eprintln!("{}: cannot open {}: {e}", args.prog, path.display());
                 }
             }
         }
