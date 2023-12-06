@@ -11,9 +11,8 @@ const MODULES_PATH: &str = "/proc/modules";
 fn main() {
     let file = match File::open(MODULES_PATH) {
         Ok(f) => f,
-
         Err(e) => {
-            eprintln!("lsmod: cannot open `{}`: {}", MODULES_PATH, e);
+            eprintln!("lsmod: cannot open `{MODULES_PATH}`: {e}");
             exit(1);
         }
     };
@@ -32,6 +31,6 @@ fn main() {
         let used_by_list = split.next().unwrap();
 
         // TODO padding
-        println!("{}\t{}\t{}\t{}", name, size, use_count, used_by_list);
+        println!("{name}\t{size}\t{use_count}\t{used_by_list}");
     }
 }

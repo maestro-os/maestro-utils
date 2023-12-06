@@ -77,10 +77,10 @@ const MS_MGC_MSK: c_ulong = 0xffff0000;
 /// `bin` is the name of the current binary.
 fn print_usage(bin: &str) {
     eprintln!("Usage:");
-    eprintln!(" {} [-h]", bin);
-    eprintln!(" {} -l", bin);
-    eprintln!(" {} -a", bin);
-    eprintln!(" {} [device] dir", bin);
+    eprintln!(" {bin} [-h]");
+    eprintln!(" {bin} -l");
+    eprintln!(" {bin} -a");
+    eprintln!(" {bin} [device] dir");
     eprintln!();
     eprintln!("Options:");
     eprintln!(" -h:\t\tprints usage");
@@ -88,16 +88,6 @@ fn print_usage(bin: &str) {
     eprintln!(" -a:\t\tmounts every filesystems specified in the /etc/fstab file");
     eprintln!(" device:\tthe device to mount. If not specified, the command attempts to find the device using the /dev/fstab file");
     eprintln!(" dir:\t\tthe directory on which the filesystem is to be mounted");
-}
-
-extern "C" {
-    fn mount(
-        source: *const i8,
-        target: *const i8,
-        filesystemtype: *const i8,
-        mountflags: c_ulong,
-        data: *const u8,
-    ) -> c_int;
 }
 
 /// Mounts a filesystem.
@@ -123,32 +113,30 @@ pub fn mount_fs(
     let data = data.map(|data| data.as_ptr()).unwrap_or(null::<_>());
 
     let ret = unsafe {
-        mount(
+        libc::mount(
             source_c.as_ptr(),
             target_c.as_ptr(),
             fs_type_ptr,
             mountflags,
-            data,
+            data as _,
         )
     };
     if ret < 0 {
         return Err(Error::last_os_error());
     }
-
     Ok(())
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    let bin = args.first().map(String::as_str).unwrap_or("mount");
 
     if args.is_empty() {
-        print_usage("mount");
+        print_usage(bin);
         exit(1);
     }
-    let bin = &args[0];
 
-    let a: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-
+    let a: Vec<&str> = args.iter().map(String::as_str).collect();
     match a[1..] {
         [] => {
             print_usage(bin);
