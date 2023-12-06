@@ -5,9 +5,8 @@ use std::process::exit;
 use std::{fs, io};
 
 fn main() {
-    let result = fs::read("/etc/nologin.txt");
-    let msg = result
-        .ok()
+    let msg = fs::read("/etc/nologin.txt").ok();
+    let msg = msg
         .as_deref()
         .unwrap_or(b"This account is currently not available.");
     let _ = io::stdout().write_all(msg);
