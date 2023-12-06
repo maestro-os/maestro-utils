@@ -163,7 +163,7 @@ pub fn read_partitions(path: &Path) -> io::Result<()> {
         match err.raw_os_error() {
             // Inappropriate ioctl for device
             // This error is ignored because ioctl will fail when called for non-device files
-            Some(25) => {},
+            Some(25) => {}
             _ => return Err(err),
         }
     }

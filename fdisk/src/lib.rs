@@ -4,6 +4,6 @@
 #![feature(iter_array_chunks)]
 
 pub mod crc32;
-pub mod guid;
 pub mod disk;
+pub mod guid;
 pub mod partition;

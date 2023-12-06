@@ -7,8 +7,8 @@
 #![feature(iter_array_chunks)]
 
 mod crc32;
-mod guid;
 mod disk;
+mod guid;
 mod partition;
 
 use crate::partition::PartitionTable;

@@ -1,6 +1,7 @@
 //! TODO
 
 use crate::crc32;
+use crate::guid::GUID;
 use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
@@ -16,7 +17,6 @@ use std::path::Path;
 use std::slice;
 use std::str::FromStr;
 use utils::prompt::prompt;
-use crate::guid::GUID;
 
 // TODO adapt to disks whose sector size is different than 512
 
@@ -829,9 +829,8 @@ impl PartitionTableType {
 
         // Ask partition number
         let first = 1; // TODO get from disk
-        let prompt_str = format!(
-            "Partition number ({first}-{max_partition_count}, default {first}): "
-        );
+        let prompt_str =
+            format!("Partition number ({first}-{max_partition_count}, default {first}): ");
         let partition_number = prompt(Some(&prompt_str), false)
             .filter(|s| !s.is_empty())
             .map(|s| s.parse::<usize>())
@@ -1041,7 +1040,7 @@ impl PartitionTableType {
 
                 for (i, p) in partitions.iter().enumerate() {
                     let PartitionType::MBR(partition_type) = p.part_type else {
-                         panic!("invalid partition type of MBR table");
+                        panic!("invalid partition type of MBR table");
                     };
                     mbr.partitions[i] = MBRPartition {
                         attrs: 0,
