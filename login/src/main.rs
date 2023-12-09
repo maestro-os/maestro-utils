@@ -3,6 +3,7 @@
 #![feature(never_type)]
 
 use std::ffi::CString;
+use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::process::exit;
@@ -54,13 +55,10 @@ fn switch_user(logname: &str, user: &User) -> io::Result<!> {
         "/bin/sh"
     };
     let path = match uid {
-        0 => "/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin".bytes(),
-        _ => "/usr/local/bin:/bin:/usr/bin".bytes(),
+        0 => "/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin",
+        _ => "/usr/local/bin:/bin:/usr/bin",
     };
-    let mail = b"/var/spool/mail/"
-        .into_iter()
-        .cloned()
-        .chain(login_name.as_bytes().into_iter().cloned());
+    let mail = "/var/spool/mail/".bytes().chain(login_name.bytes());
 
     // Build variables
     let env_home = build_env_var("HOME", home.as_os_str().as_bytes().iter().cloned());
@@ -68,7 +66,7 @@ fn switch_user(logname: &str, user: &User) -> io::Result<!> {
     let env_logname = build_env_var("LOGNAME", logname.bytes());
     let env_term = build_env_var("TERM", term.as_bytes().iter().cloned());
     let env_shell = build_env_var("SHELL", shell.bytes());
-    let env_path = build_env_var("PATH", path);
+    let env_path = build_env_var("PATH", path.bytes());
     let env_mail = build_env_var("MAIL", mail);
     let envp = [
         env_home.as_ptr(),
