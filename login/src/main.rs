@@ -23,7 +23,6 @@ fn build_env_var(name: &str, value: impl IntoIterator<Item = u8>) -> CString {
         .cloned()
         .chain(iter::once(b'='))
         .chain(value)
-        .chain(iter::once(b'\0'))
         .collect();
     // TODO handle when the value contains a nul-byte?
     CString::new(data).unwrap()
