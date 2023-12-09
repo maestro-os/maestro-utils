@@ -48,9 +48,13 @@ pub fn get_timestamp() -> Duration {
 pub fn exec_wait<T, F: FnOnce() -> T>(d: Duration, f: F) -> T {
     let start = get_timestamp();
     let result = f();
-    // Waiting until the given amount of time is spent
-    while get_timestamp() < start + d {
-        thread::sleep(Duration::from_millis(1));
+    // Wait until the given amount of time is spent
+    loop {
+        let ts = get_timestamp();
+        if ts >= start + d {
+            break;
+        }
+        thread::sleep(ts - start);
     }
     result
 }
@@ -76,9 +80,7 @@ where
 ///
 /// If the result is undefined, the function returns `None`.
 pub fn log2(n: u64) -> Option<u64> {
-    let num_bits = u64::BITS as u64;
-
-    let n = num_bits - n.leading_zeros() as u64;
+    let n = (u64::BITS as u64) - n.leading_zeros() as u64;
     if n > 0 {
         Some(n - 1)
     } else {
@@ -99,7 +101,6 @@ impl ByteSize {
 impl fmt::Display for ByteSize {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut order = log2(self.0).unwrap_or(0) / log2(1024).unwrap();
-
         let suffix = match order {
             0 => "bytes",
             1 => "KiB",
@@ -110,7 +111,6 @@ impl fmt::Display for ByteSize {
             6 => "EiB",
             7 => "ZiB",
             8 => "YiB",
-
             _ => {
                 order = 0;
                 "bytes"
@@ -118,9 +118,8 @@ impl fmt::Display for ByteSize {
         };
 
         let unit = 1024u64.pow(order as u32);
-        let nbr = self.0 / unit as u64;
-
-        write!(fmt, "{} {}", nbr, suffix)
+        let nbr = self.0 / unit;
+        write!(fmt, "{nbr} {suffix}")
     }
 }
 

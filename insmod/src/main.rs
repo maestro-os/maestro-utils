@@ -8,7 +8,6 @@ use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 use std::process::exit;
 use std::ptr::null;
-use utils::syscall;
 
 /// The ID of the `finit_module` system call.
 const FINIT_MODULE_ID: c_long = 0x15e;
@@ -36,7 +35,7 @@ fn main() {
     });
 
     // TODO handle parameters
-    let ret = unsafe { syscall(FINIT_MODULE_ID, file.as_raw_fd(), null::<u8>(), 0) };
+    let ret = unsafe { libc::syscall(FINIT_MODULE_ID, file.as_raw_fd(), null::<u8>(), 0) };
     if ret < 0 {
         eprintln!(
             "insmod: cannot load module `{}`: {}",

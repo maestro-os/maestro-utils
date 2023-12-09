@@ -5,7 +5,6 @@ use std::ffi::c_long;
 use std::ffi::CString;
 use std::io::Error;
 use std::process::exit;
-use utils::syscall;
 
 /// The ID of the `delete_module` system call.
 const DELETE_MODULE_ID: c_long = 0x81;
@@ -29,7 +28,7 @@ fn main() {
     let name = &args[1];
     let c_name = CString::new(name.as_bytes()).unwrap(); // TODO handle error
 
-    let ret = unsafe { syscall(DELETE_MODULE_ID, c_name.as_ptr(), 0) };
+    let ret = unsafe { libc::syscall(DELETE_MODULE_ID, c_name.as_ptr(), 0) };
     if ret < 0 {
         eprintln!(
             "rmmod: cannot unload module `{}`: {}",

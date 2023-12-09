@@ -127,7 +127,10 @@ fn read(path: &Path) -> io::Result<impl Iterator<Item = io::Result<Vec<String>>>
 }
 
 /// Writes the file at path `path` with data `data`.
-fn write<const T: usize, I: IntoIterator<Item = [OsString; T]>>(path: &Path, data: I) -> io::Result<()> {
+fn write<const T: usize, I: IntoIterator<Item = [OsString; T]>>(
+    path: &Path,
+    data: I,
+) -> io::Result<()> {
     let mut file = OpenOptions::new().create(true).write(true).open(path)?;
     for line in data {
         for (i, elem) in line.iter().enumerate() {
@@ -171,19 +174,17 @@ pub fn read_passwd(path: &Path) -> Result<Vec<User>, Box<dyn Error>> {
 ///
 /// `path` is the path to the file.
 pub fn write_passwd(path: &Path, entries: &[User]) -> io::Result<()> {
-    let iter = entries
-        .iter()
-        .map(|e| {
-            [
-                e.login_name.clone().into(),
-                e.password.clone().into(),
-                e.uid.to_string().into(),
-                e.gid.to_string().into(),
-                e.comment.clone().into(),
-                e.home.clone().into_os_string(),
-                e.interpreter.clone().into(),
-            ]
-        });
+    let iter = entries.iter().map(|e| {
+        [
+            e.login_name.clone().into(),
+            e.password.clone().into(),
+            e.uid.to_string().into(),
+            e.gid.to_string().into(),
+            e.comment.clone().into(),
+            e.home.clone().into_os_string(),
+            e.interpreter.clone().into(),
+        ]
+    });
     write(path, iter)
 }
 
@@ -219,41 +220,39 @@ pub fn read_shadow(path: &Path) -> Result<Vec<Shadow>, Box<dyn Error>> {
 ///
 /// `path` is the path to the file.
 pub fn write_shadow(path: &Path, entries: &[Shadow]) -> io::Result<()> {
-    let iter = entries
-        .iter()
-        .map(|e| {
-            [
-                e.login_name.clone().into(),
-                e.password.clone().into(),
-                e.last_change.to_string().into(),
-                e.minimum_age
-                    .as_ref()
-                    .map(u32::to_string)
-                    .unwrap_or_default()
-                    .into(),
-                e.maximum_age
-                    .as_ref()
-                    .map(u32::to_string)
-                    .unwrap_or_default()
-                    .into(),
-                e.warning_period
-                    .as_ref()
-                    .map(u32::to_string)
-                    .unwrap_or_default()
-                    .into(),
-                e.inactivity_period
-                    .as_ref()
-                    .map(u32::to_string)
-                    .unwrap_or_default()
-                    .into(),
-                e.account_expiration
-                    .as_ref()
-                    .map(u32::to_string)
-                    .unwrap_or_default()
-                    .into(),
-                e.reserved.clone().into(),
-            ]
-        });
+    let iter = entries.iter().map(|e| {
+        [
+            e.login_name.clone().into(),
+            e.password.clone().into(),
+            e.last_change.to_string().into(),
+            e.minimum_age
+                .as_ref()
+                .map(u32::to_string)
+                .unwrap_or_default()
+                .into(),
+            e.maximum_age
+                .as_ref()
+                .map(u32::to_string)
+                .unwrap_or_default()
+                .into(),
+            e.warning_period
+                .as_ref()
+                .map(u32::to_string)
+                .unwrap_or_default()
+                .into(),
+            e.inactivity_period
+                .as_ref()
+                .map(u32::to_string)
+                .unwrap_or_default()
+                .into(),
+            e.account_expiration
+                .as_ref()
+                .map(u32::to_string)
+                .unwrap_or_default()
+                .into(),
+            e.reserved.clone().into(),
+        ]
+    });
     write(path, iter)
 }
 
@@ -284,16 +283,14 @@ pub fn read_group(path: &Path) -> Result<Vec<Group>, Box<dyn Error>> {
 ///
 /// `path` is the path to the file.
 pub fn write_group(path: &Path, entries: &[Group]) -> io::Result<()> {
-    let iter = entries
-        .iter()
-        .map(|e| {
-            [
-                e.group_name.clone().into(),
-                e.password.clone().into(),
-                e.gid.to_string().into(),
-                e.users_list.clone().into(),
-            ]
-        });
+    let iter = entries.iter().map(|e| {
+        [
+            e.group_name.clone().into(),
+            e.password.clone().into(),
+            e.gid.to_string().into(),
+            e.users_list.clone().into(),
+        ]
+    });
     write(path, iter)
 }
 

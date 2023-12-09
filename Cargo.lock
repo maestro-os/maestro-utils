@@ -111,6 +111,7 @@ dependencies = [
 name = "insmod"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "utils",
 ]
 
@@ -164,6 +165,7 @@ dependencies = [
 name = "powerctl"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "utils",
 ]
 
@@ -187,6 +189,7 @@ dependencies = [
 name = "rmmod"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "utils",
 ]
 

@@ -23,16 +23,15 @@ use std::mem::MaybeUninit;
 pub fn prompt(prompt: Option<&str>, hidden: bool) -> Option<String> {
     let prompt = prompt.unwrap_or("Password: ");
 
-    // Saving termios state
+    // Save termios state
     let saved_termios = unsafe {
         let mut t: termios = MaybeUninit::zeroed().assume_init();
         tcgetattr(STDIN_FILENO, &mut t);
-
         t
     };
 
     if hidden {
-        // Setting temporary termios
+        // Set temporary termios
         let mut termios = saved_termios;
         termios.c_lflag &= !(ICANON | ECHO | ECHOE);
         termios.c_cc[VMIN] = 1;
@@ -42,17 +41,17 @@ pub fn prompt(prompt: Option<&str>, hidden: bool) -> Option<String> {
         }
     }
 
-    // Showing prompt
-    print!("{}", prompt);
+    // Show prompt
+    print!("{prompt}");
     let _ = io::stdout().flush();
 
-    // Reading input
+    // Read input
     let input = io::stdin().lock().lines().next()?.unwrap_or(String::new());
 
     if hidden {
         println!();
 
-        // Restoring termios state
+        // Restore termios state
         unsafe {
             tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
         }

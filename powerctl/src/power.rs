@@ -1,7 +1,6 @@
 //! This module handles power management system calls.
 
 use std::os::raw::c_long;
-use utils::syscall;
 
 /// The ID of the `reboot` system call.
 const REBOOT_ID: c_long = 0x58;
@@ -23,27 +22,27 @@ const CMD_SUSPEND: u32 = 3;
 /// Power off the system.
 pub fn poweroff() {
     unsafe {
-        syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_POWEROFF);
+        libc::syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_POWEROFF);
     }
 }
 
 /// Reboots the system.
 pub fn reboot() {
     unsafe {
-        syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_REBOOT);
+        libc::syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_REBOOT);
     }
 }
 
 /// Halts the system.
 pub fn halt() {
     unsafe {
-        syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_HALT);
+        libc::syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_HALT);
     }
 }
 
 /// Suspends the system.
 pub fn suspend() {
     unsafe {
-        syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_SUSPEND);
+        libc::syscall(REBOOT_ID, MAGIC, MAGIC2, CMD_SUSPEND);
     }
 }
