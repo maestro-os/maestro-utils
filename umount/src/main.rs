@@ -1,7 +1,5 @@
 //! The `mount` command allows to unmount a filesystem.
 
-#![feature(os_str_bytes)]
-
 use std::env;
 use std::ffi::{CStr, CString};
 use std::fs;
@@ -67,7 +65,7 @@ fn main() {
             let inner_mount_points_iter = mount_points.iter().filter(|mp| mp.starts_with(&args[1]));
 
             for mp in inner_mount_points_iter {
-                let s = CString::new(mp.as_os_str().as_os_str_bytes()).unwrap();
+                let s = CString::new(mp.as_os_str().as_bytes()).unwrap();
                 unmount_fs(&s).unwrap_or_else(|e| {
                     eprintln!("{}: cannot unmount `{}`: {e}", args[0], args[1]);
                     exit(1);

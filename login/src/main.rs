@@ -3,7 +3,6 @@
 #![feature(never_type)]
 
 use std::ffi::CString;
-use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::process::exit;
