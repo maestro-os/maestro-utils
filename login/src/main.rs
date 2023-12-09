@@ -2,24 +2,40 @@
 
 #![feature(never_type)]
 
-use std::env;
-use std::error::Error;
+use std::ffi::CString;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::process::exit;
-use std::process::Command;
+use std::ptr::null;
 use std::time::Duration;
+use std::{env, io, iter};
 use utils::prompt::prompt;
 use utils::user;
 use utils::user::User;
 use utils::util;
+
+/// Builds an environment variable in the form: name=value
+fn build_env_var(name: &str, value: impl IntoIterator<Item = u8>) -> CString {
+    let data: Vec<u8> = name
+        .as_bytes()
+        .into_iter()
+        .cloned()
+        .chain(iter::once(b'='))
+        .chain(value)
+        .chain(iter::once(b'\0'))
+        .collect();
+    // TODO handle when the value contains a nul-byte?
+    CString::new(data).unwrap()
+}
 
 /// Switches to the given user after login is successful.
 ///
 /// Arguments:
 /// - `logname` is the name of the user used to login.
 /// - `user` is the user to switch to.
-fn switch_user(logname: &str, user: &User) -> Result<!, Box<dyn Error>> {
+fn switch_user(logname: &str, user: &User) -> io::Result<!> {
     let User {
+        login_name,
         uid,
         gid,
         home,
@@ -27,20 +43,58 @@ fn switch_user(logname: &str, user: &User) -> Result<!, Box<dyn Error>> {
         ..
     } = user;
 
-    // Changing user
+    // Prepare environment
+    let term = env::var_os("TERM").unwrap_or_else(|| {
+        // TODO fetch from the terminal
+        "linux".into()
+    });
+    let shell = if interpreter.is_empty() {
+        interpreter
+    } else {
+        "/bin/sh"
+    };
+    let path = match uid {
+        0 => "/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin".bytes(),
+        _ => "/usr/local/bin:/bin:/usr/bin".bytes(),
+    };
+    let mail = b"/var/spool/mail/"
+        .into_iter()
+        .cloned()
+        .chain(login_name.as_bytes().into_iter().cloned());
+
+    // Build variables
+    let env_home = build_env_var("HOME", home.as_os_str().as_bytes().iter().cloned());
+    let env_user = build_env_var("USER", login_name.bytes());
+    let env_logname = build_env_var("LOGNAME", logname.bytes());
+    let env_term = build_env_var("TERM", term.as_bytes().iter().cloned());
+    let env_shell = build_env_var("SHELL", shell.bytes());
+    let env_path = build_env_var("PATH", path);
+    let env_mail = build_env_var("MAIL", mail);
+    let envp = [
+        env_home.as_ptr(),
+        env_user.as_ptr(),
+        env_logname.as_ptr(),
+        env_term.as_ptr(),
+        env_shell.as_ptr(),
+        env_path.as_ptr(),
+        env_mail.as_ptr(),
+        null(),
+    ];
+
+    // Set current user
     user::set(*uid, *gid)?;
+    // Set current working directory
+    env::set_current_dir(home)?;
 
-    // TODO Execute without fork
-    // Running the user's program
-    let status = Command::new(interpreter)
-        .current_dir(home)
-        .env("HOME", home)
-        .env("LOGNAME", logname)
-        .status()
-        .map_err(|_| format!("login: Failed to run shell `{interpreter}`"))?;
-
-    // Exiting with the shell's status
-    exit(status.code().unwrap());
+    // Execute interpreter
+    let argv = [shell.as_ptr() as _, null()];
+    let res = unsafe { libc::execve(shell.as_ptr() as _, argv.as_ptr(), envp.as_ptr()) };
+    if res >= 0 {
+        // In theory, `execve` will never return when successful
+        unreachable!();
+    } else {
+        Err(io::Error::last_os_error())
+    }
 }
 
 fn main() {
