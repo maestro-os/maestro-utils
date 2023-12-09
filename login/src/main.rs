@@ -48,7 +48,7 @@ fn switch_user(logname: &str, user: &User) -> io::Result<!> {
         // TODO fetch from the terminal
         "linux".into()
     });
-    let shell = if interpreter.is_empty() {
+    let shell = if !interpreter.is_empty() {
         interpreter
     } else {
         "/bin/sh"
@@ -78,14 +78,16 @@ fn switch_user(logname: &str, user: &User) -> io::Result<!> {
         null(),
     ];
 
+    let bin = CString::new(shell).unwrap(); // TODO handle error?
+    let argv = [bin.as_ptr(), null()];
+
     // Set current user
     user::set(*uid, *gid)?;
     // Set current working directory
     env::set_current_dir(home)?;
 
     // Execute interpreter
-    let argv = [shell.as_ptr() as _, null()];
-    let res = unsafe { libc::execve(shell.as_ptr() as _, argv.as_ptr(), envp.as_ptr()) };
+    let res = unsafe { libc::execve(bin.as_ptr(), argv.as_ptr(), envp.as_ptr()) };
     if res >= 0 {
         // In theory, `execve` will never return when successful
         unreachable!();
