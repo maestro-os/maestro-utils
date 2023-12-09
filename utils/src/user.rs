@@ -119,16 +119,15 @@ pub struct Group {
 }
 
 /// Reads and parses the file at path `path`.
-fn read(path: &Path) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+fn read(path: &Path) -> io::Result<impl Iterator<Item = io::Result<Vec<String>>>> {
     let file = File::open(path)?;
-    BufReader::new(file)
+    Ok(BufReader::new(file)
         .lines()
-        .map(|l| Ok(l?.split(':').map(str::to_owned).collect()))
-        .collect()
+        .map(|l| Ok(l?.split(':').map(str::to_owned).collect::<Vec<_>>())))
 }
 
 /// Writes the file at path `path` with data `data`.
-fn write(path: &Path, data: &[Vec<OsString>]) -> io::Result<()> {
+fn write<const T: usize, I: IntoIterator<Item = [OsString; T]>>(path: &Path, data: I) -> io::Result<()> {
     let mut file = OpenOptions::new().create(true).write(true).open(path)?;
     for line in data {
         for (i, elem) in line.iter().enumerate() {
@@ -150,6 +149,7 @@ pub fn read_passwd(path: &Path) -> Result<Vec<User>, Box<dyn Error>> {
         .into_iter()
         .enumerate()
         .map(|(i, data)| {
+            let data = data?;
             if data.len() != 7 {
                 return Err(format!("Invalid entry on line `{}`", i + 1).into());
             }
@@ -171,21 +171,20 @@ pub fn read_passwd(path: &Path) -> Result<Vec<User>, Box<dyn Error>> {
 ///
 /// `path` is the path to the file.
 pub fn write_passwd(path: &Path, entries: &[User]) -> io::Result<()> {
-    let entries: Vec<Vec<OsString>> = entries
+    let iter = entries
         .iter()
         .map(|e| {
-            vec![
+            [
                 e.login_name.clone().into(),
                 e.password.clone().into(),
                 e.uid.to_string().into(),
                 e.gid.to_string().into(),
                 e.comment.clone().into(),
-                e.home.clone().into(),
+                e.home.clone().into_os_string(),
                 e.interpreter.clone().into(),
             ]
-        })
-        .collect();
-    write(path, &entries)
+        });
+    write(path, iter)
 }
 
 /// Reads the shadow file.
@@ -196,6 +195,7 @@ pub fn read_shadow(path: &Path) -> Result<Vec<Shadow>, Box<dyn Error>> {
         .into_iter()
         .enumerate()
         .map(|(i, data)| {
+            let data = data?;
             if data.len() != 9 {
                 return Err(format!("Invalid entry on line `{}`", i + 1).into());
             }
@@ -219,10 +219,10 @@ pub fn read_shadow(path: &Path) -> Result<Vec<Shadow>, Box<dyn Error>> {
 ///
 /// `path` is the path to the file.
 pub fn write_shadow(path: &Path, entries: &[Shadow]) -> io::Result<()> {
-    let entries: Vec<Vec<OsString>> = entries
+    let iter = entries
         .iter()
         .map(|e| {
-            vec![
+            [
                 e.login_name.clone().into(),
                 e.password.clone().into(),
                 e.last_change.to_string().into(),
@@ -253,9 +253,8 @@ pub fn write_shadow(path: &Path, entries: &[Shadow]) -> io::Result<()> {
                     .into(),
                 e.reserved.clone().into(),
             ]
-        })
-        .collect();
-    write(path, &entries)
+        });
+    write(path, iter)
 }
 
 /// Reads the group file.
@@ -266,6 +265,7 @@ pub fn read_group(path: &Path) -> Result<Vec<Group>, Box<dyn Error>> {
         .into_iter()
         .enumerate()
         .map(|(i, data)| {
+            let data = data?;
             if data.len() != 4 {
                 return Err(format!("Invalid entry on line `{}`", i + 1).into());
             }
@@ -284,29 +284,28 @@ pub fn read_group(path: &Path) -> Result<Vec<Group>, Box<dyn Error>> {
 ///
 /// `path` is the path to the file.
 pub fn write_group(path: &Path, entries: &[Group]) -> io::Result<()> {
-    let entries: Vec<Vec<OsString>> = entries
+    let iter = entries
         .iter()
         .map(|e| {
-            vec![
+            [
                 e.group_name.clone().into(),
                 e.password.clone().into(),
                 e.gid.to_string().into(),
                 e.users_list.clone().into(),
             ]
-        })
-        .collect();
-    write(path, &entries)
+        });
+    write(path, iter)
 }
 
 /// Sets the current user.
-pub fn set(uid: u32, gid: u32) -> Result<(), Box<dyn Error>> {
+pub fn set(uid: u32, gid: u32) -> io::Result<()> {
     let result = unsafe { libc::setuid(uid) };
     if result < 0 {
-        return Err("Failed to set UID!".into());
+        return Err(io::Error::last_os_error());
     }
     let result = unsafe { libc::setgid(gid) };
     if result < 0 {
-        return Err("Failed to set GID!".into());
+        return Err(io::Error::last_os_error());
     }
     Ok(())
 }

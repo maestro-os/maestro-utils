@@ -1392,7 +1392,6 @@ impl FromStr for PartitionTable {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn partitions_serialize0() {

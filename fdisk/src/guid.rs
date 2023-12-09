@@ -20,7 +20,7 @@ impl FromStr for GUID {
         }
 
         // Parse
-        let mut iter = s
+        let iter = s
             .chars()
             .filter_map(|c| match c {
                 c @ '0'..='9' => Some(c as u8 - b'0'),

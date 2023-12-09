@@ -1,7 +1,6 @@
 //! The `mount` command allows to mount a filesystem.
 
 use std::env;
-use std::ffi::c_int;
 use std::ffi::c_ulong;
 use std::ffi::CString;
 use std::io;

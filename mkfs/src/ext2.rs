@@ -631,7 +631,6 @@ mod test {
     use std::fs::{File, OpenOptions};
     use std::io::Write;
     use std::path::PathBuf;
-    use std::process::Command;
 
     fn prepare_device(size: usize) -> io::Result<(PathBuf, File)> {
         let path = "/tmp/maestro-utils-test-mkfs-ext2".into();

@@ -1,7 +1,6 @@
 //! The `mount` command allows to unmount a filesystem.
 
 use std::env;
-use std::ffi::c_int;
 use std::fs;
 use std::io;
 use std::io::Error;
