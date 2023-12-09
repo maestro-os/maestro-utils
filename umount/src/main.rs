@@ -1,6 +1,9 @@
 //! The `mount` command allows to unmount a filesystem.
 
+#![feature(os_str_bytes)]
+
 use std::env;
+use std::ffi::{CStr, CString};
 use std::fs;
 use std::io;
 use std::io::Error;
@@ -21,8 +24,8 @@ fn print_usage(bin: &str) {
 }
 
 /// Unmounts the filesystem at the given path `target`.
-pub fn unmount_fs(target: &[u8]) -> io::Result<()> {
-    let ret = unsafe { libc::umount(target.as_ptr() as *const _) };
+pub fn unmount_fs(target: &CStr) -> io::Result<()> {
+    let ret = unsafe { libc::umount(target.as_ptr() as _) };
     if ret < 0 {
         return Err(Error::last_os_error());
     }
@@ -47,7 +50,8 @@ fn main() {
         }
 
         2 if args[1] != "-R" => {
-            unmount_fs(args[1].as_bytes()).unwrap_or_else(|e| {
+            let s = CString::new(args[1].as_bytes()).unwrap();
+            unmount_fs(&s).unwrap_or_else(|e| {
                 eprintln!("{}: cannot unmount `{}`: {e}", args[0], args[1]);
                 exit(1);
             });
@@ -63,7 +67,8 @@ fn main() {
             let inner_mount_points_iter = mount_points.iter().filter(|mp| mp.starts_with(&args[1]));
 
             for mp in inner_mount_points_iter {
-                unmount_fs(mp.as_os_str().as_bytes()).unwrap_or_else(|e| {
+                let s = CString::new(mp.as_os_str().as_os_str_bytes()).unwrap();
+                unmount_fs(&s).unwrap_or_else(|e| {
                     eprintln!("{}: cannot unmount `{}`: {e}", args[0], args[1]);
                     exit(1);
                 });
