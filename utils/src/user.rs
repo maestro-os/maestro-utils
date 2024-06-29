@@ -5,16 +5,15 @@ use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use rand_core::OsRng;
 use std::error::Error;
-use std::ffi::OsString;
+use std::fmt::Formatter;
 use std::fs::File;
 use std::fs::OpenOptions;
-use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
-use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::path::PathBuf;
+use std::{fmt, io};
 
 /// The path to the passwd file.
 pub const PASSWD_PATH: &str = "/etc/passwd";
@@ -43,7 +42,19 @@ pub fn check_password(hash: &str, pass: &str) -> bool {
         .is_ok()
 }
 
-/// Structure representing a user. This entry is present in the passwd file.
+/// Wrapper for [`Option`] allowing to display a value if [`Some`], or nothing if [`None`].
+struct OptionDisplay<T: fmt::Display>(Option<T>);
+
+impl<T: fmt::Display> fmt::Display for OptionDisplay<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            Some(val) => write!(f, "{val}"),
+            None => Ok(()),
+        }
+    }
+}
+
+/// A system user, present in the `passwd` file.
 pub struct User {
     /// The user's login name.
     pub login_name: String,
@@ -73,7 +84,23 @@ impl User {
     }
 }
 
-/// Structure representing a shadow entry.
+impl fmt::Display for User {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "{}:{}:{}:{}:{}:{}:{}",
+            self.login_name,
+            self.password,
+            self.uid,
+            self.gid,
+            self.comment,
+            self.home.display(),
+            self.interpreter
+        )
+    }
+}
+
+/// A shadow entry, present in the `shadow` file.
 pub struct Shadow {
     /// The user's login name.
     pub login_name: String,
@@ -100,13 +127,31 @@ pub struct Shadow {
 }
 
 impl Shadow {
-    /// Check the given (not hashed) password `pass` against the current entry.
+    /// Check the given (not hashed) password `pass` against `self`.
     pub fn check_password(&self, pass: &str) -> bool {
         check_password(&self.password, pass)
     }
 }
 
-/// Structure representing a group.
+impl fmt::Display for Shadow {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "{}:{}:{}:{}:{}:{}:{}:{}:{}",
+            self.login_name,
+            self.password,
+            self.last_change,
+            OptionDisplay(self.minimum_age),
+            OptionDisplay(self.maximum_age),
+            OptionDisplay(self.warning_period),
+            OptionDisplay(self.inactivity_period),
+            OptionDisplay(self.account_expiration),
+            self.reserved,
+        )
+    }
+}
+
+/// A system group, present in `group`.
 pub struct Group {
     /// The group's name.
     pub group_name: String,
@@ -118,6 +163,16 @@ pub struct Group {
     pub users_list: String,
 }
 
+impl fmt::Display for Group {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "{}:{}:{}:{}",
+            self.group_name, self.password, self.gid, self.users_list
+        )
+    }
+}
+
 /// Reads and parses the file at path `path`.
 fn read(path: &Path) -> io::Result<impl Iterator<Item = io::Result<Vec<String>>>> {
     let file = File::open(path)?;
@@ -127,19 +182,14 @@ fn read(path: &Path) -> io::Result<impl Iterator<Item = io::Result<Vec<String>>>
 }
 
 /// Writes the file at path `path` with data `data`.
-fn write<const T: usize, I: IntoIterator<Item = [OsString; T]>>(
-    path: &Path,
-    data: I,
-) -> io::Result<()> {
-    let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+pub fn write<I: IntoIterator<Item = E>, E: fmt::Display>(path: &Path, data: I) -> io::Result<()> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(path)?;
     for line in data {
-        for (i, elem) in line.iter().enumerate() {
-            file.write_all(elem.as_bytes())?;
-            if i + 1 < line.len() {
-                file.write_all(b":")?;
-            }
-        }
-        file.write_all(b"\n")?;
+        write!(file, "{}", line)?;
     }
     Ok(())
 }
@@ -170,24 +220,6 @@ pub fn read_passwd(path: &Path) -> Result<Vec<User>, Box<dyn Error>> {
         .collect()
 }
 
-/// Writes the passwd file.
-///
-/// `path` is the path to the file.
-pub fn write_passwd(path: &Path, entries: &[User]) -> io::Result<()> {
-    let iter = entries.iter().map(|e| {
-        [
-            e.login_name.clone().into(),
-            e.password.clone().into(),
-            e.uid.to_string().into(),
-            e.gid.to_string().into(),
-            e.comment.clone().into(),
-            e.home.clone().into_os_string(),
-            e.interpreter.clone().into(),
-        ]
-    });
-    write(path, iter)
-}
-
 /// Reads the shadow file.
 ///
 /// `path` is the path to the file.
@@ -216,46 +248,6 @@ pub fn read_shadow(path: &Path) -> Result<Vec<Shadow>, Box<dyn Error>> {
         .collect()
 }
 
-/// Writes the shadow file.
-///
-/// `path` is the path to the file.
-pub fn write_shadow(path: &Path, entries: &[Shadow]) -> io::Result<()> {
-    let iter = entries.iter().map(|e| {
-        [
-            e.login_name.clone().into(),
-            e.password.clone().into(),
-            e.last_change.to_string().into(),
-            e.minimum_age
-                .as_ref()
-                .map(u32::to_string)
-                .unwrap_or_default()
-                .into(),
-            e.maximum_age
-                .as_ref()
-                .map(u32::to_string)
-                .unwrap_or_default()
-                .into(),
-            e.warning_period
-                .as_ref()
-                .map(u32::to_string)
-                .unwrap_or_default()
-                .into(),
-            e.inactivity_period
-                .as_ref()
-                .map(u32::to_string)
-                .unwrap_or_default()
-                .into(),
-            e.account_expiration
-                .as_ref()
-                .map(u32::to_string)
-                .unwrap_or_default()
-                .into(),
-            e.reserved.clone().into(),
-        ]
-    });
-    write(path, iter)
-}
-
 /// Reads the group file.
 ///
 /// `path` is the path to the file.
@@ -277,21 +269,6 @@ pub fn read_group(path: &Path) -> Result<Vec<Group>, Box<dyn Error>> {
             })
         })
         .collect()
-}
-
-/// Writes the group file.
-///
-/// `path` is the path to the file.
-pub fn write_group(path: &Path, entries: &[Group]) -> io::Result<()> {
-    let iter = entries.iter().map(|e| {
-        [
-            e.group_name.clone().into(),
-            e.password.clone().into(),
-            e.gid.to_string().into(),
-            e.users_list.clone().into(),
-        ]
-    });
-    write(path, iter)
 }
 
 /// Sets the current user.

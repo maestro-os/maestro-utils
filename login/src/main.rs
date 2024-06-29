@@ -1,6 +1,7 @@
 //! `login` prompts a username/password to authenticate on a new session.
 
 #![feature(never_type)]
+#![feature(os_str_display)]
 
 use std::ffi::CString;
 use std::os::unix::ffi::OsStrExt;
@@ -102,7 +103,7 @@ fn main() {
         println!();
 
         // Get user prompt
-        let user_prompt = format!("{} login: ", util::get_hostname());
+        let user_prompt = format!("{} login: ", util::get_hostname().display());
 
         // Prompt login and password
         let login = prompt(Some(&user_prompt), false).unwrap_or_else(|| exit(1));

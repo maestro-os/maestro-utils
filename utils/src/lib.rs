@@ -1,4 +1,4 @@
-//! This module implements features common to several commands.
+//! Features common to several commands.
 
 pub mod disk;
 pub mod prompt;

@@ -14,7 +14,6 @@ use std::num::NonZeroU32;
 use std::slice;
 use utils::util;
 use utils::util::get_timestamp;
-use utils::util::log2;
 use utils::util::reinterpret;
 
 /// The offset of the superblock from the beginning of the device.
@@ -414,7 +413,7 @@ impl FSFactory for Ext2Factory {
 
         let block_size = self.block_size.unwrap_or(DEFAULT_BLOCK_SIZE);
         // TODO if block size is not a power of two or if log2(block size) < 10, error
-        let block_size_log = log2(block_size).unwrap() as u32;
+        let block_size_log = block_size.checked_ilog2().unwrap();
 
         let blocks_per_group = self.blocks_per_group.unwrap_or(DEFAULT_BLOCKS_PER_GROUP);
         let inodes_per_group = self.inodes_per_group.unwrap_or(DEFAULT_INODES_PER_GROUP);
