@@ -213,8 +213,8 @@ impl BlockGroupDescriptor {
     ///
     /// `superblock` is the filesystem's superblock.
     pub fn get_disk_offset(i: u32, superblock: &Superblock) -> u64 {
-        let bgdt_off = (SUPERBLOCK_OFFSET / superblock.get_block_size() as u64) + 1;
-        (bgdt_off * superblock.get_block_size() as u64) + (i as u64 * size_of::<Self>() as u64)
+        let bgdt_off = (SUPERBLOCK_OFFSET / superblock.get_block_size()) + 1;
+        (bgdt_off * superblock.get_block_size()) + (i as u64 * size_of::<Self>() as u64)
     }
 
     /// Reads and returns the `i`th block group descriptor.
@@ -303,7 +303,7 @@ impl INode {
     fn get_disk_offset(i: NonZeroU32, superblock: &Superblock, dev: &mut File) -> io::Result<u64> {
         let i = i.get();
 
-        let blk_size = superblock.get_block_size() as u64;
+        let blk_size = superblock.get_block_size();
         let inode_size = superblock.get_inode_size() as u64;
 
         // The block group the inode is located in
@@ -590,7 +590,7 @@ impl FSFactory for Ext2Factory {
 
         // Create `.` and `..` entries for the root directory
         let entries_block = used_blocks_end - 1;
-        let entries_block_off = entries_block as u64 * block_size as u64;
+        let entries_block_off = entries_block as u64 * block_size;
         root_dir.i_block[0] = entries_block;
         dev.seek(SeekFrom::Start(entries_block_off))?;
         let self_entry = DirectoryEntry {

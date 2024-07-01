@@ -53,21 +53,17 @@ impl Args {
 
 fn parse_args() -> Args {
     let mut args: Args = Default::default();
-
     let mut iter = env::args();
     args.prog = iter.next().unwrap_or("fdisk".to_owned());
     args.script = args.prog.split('/').last() == Some("sfdisk");
-
-    while let Some(arg) = iter.next() {
+    for arg in iter {
         match arg.as_str() {
             "-h" | "--help" => args.help = true,
             "-l" | "--list" => args.list = true,
-
             // TODO implement other options
             _ => args.disks.push(arg.into()),
         }
     }
-
     args
 }
 

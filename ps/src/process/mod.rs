@@ -1,4 +1,4 @@
-//! Module implementing process structures.
+//! Process structures.
 
 mod status_parser;
 
@@ -10,7 +10,7 @@ use std::fs;
 use std::fs::ReadDir;
 use std::io;
 
-/// Structure representing a process.
+/// A process.
 #[derive(Debug, Default)]
 pub struct Process {
     /// The process's name.
@@ -37,13 +37,13 @@ pub struct Process {
 }
 
 impl Process {
-    /// Returns an instance of ProcessDisplay, used to display a process with the given format.
+    /// Returns an instance of [`ProcessDisplay`], used to display a process with the given `format`.
     pub fn display<'p, 'f>(&'p self, format: &'f DisplayFormat) -> ProcessDisplay<'p, 'f> {
         ProcessDisplay { proc: self, format }
     }
 }
 
-/// Structure used to display a process's informations.
+/// Display of a process's information.
 pub struct ProcessDisplay<'p, 'f> {
     /// The process.
     proc: &'p Process,
@@ -53,7 +53,7 @@ pub struct ProcessDisplay<'p, 'f> {
 
 impl<'f, 'p> fmt::Display for ProcessDisplay<'f, 'p> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        for (name, _) in &self.format.names {
+        for (name, _) in &self.format.0 {
             match name {
                 Name::Ruser => write!(fmt, " {}", self.proc.ruid)?,
                 Name::User => write!(fmt, " {}", self.proc.uid)?,
@@ -68,38 +68,31 @@ impl<'f, 'p> fmt::Display for ProcessDisplay<'f, 'p> {
                 // TODO Name::Etime => todo!(),
                 // TODO Name::Time => todo!(),
                 Name::Tty => match &self.proc.tty {
-                    Some(tty) => write!(fmt, " {}", tty)?,
+                    Some(tty) => write!(fmt, " {tty}")?,
                     None => write!(fmt, " ?")?,
                 },
-
                 Name::Comm => write!(fmt, " {}", self.proc.name)?,
                 Name::Args => write!(fmt, " {}", self.proc.full_cmd)?,
             }
         }
-
         Ok(())
     }
 }
 
 /// An iterator on the system's processes.
-pub struct ProcessIterator {
-    /// The iterator on procfs files.
-    files: ReadDir,
-}
+pub struct ProcessIterator(ReadDir);
 
 impl ProcessIterator {
     /// Creates a new instance.
-    pub fn new() -> Result<Self, io::Error> {
-        Ok(Self {
-            files: fs::read_dir("/proc")?,
-        })
+    pub fn new() -> io::Result<Self> {
+        Ok(Self(fs::read_dir("/proc")?))
     }
 
     /// Returns the next PID in the iterator.
     /// If no PID is left, the function returns None.
     /// On error, the caller must retry.
     fn next_pid(&mut self) -> Option<Result<u32, ()>> {
-        let entry = match self.files.next()? {
+        let entry = match self.0.next()? {
             Ok(e) => e,
             Err(_) => return Some(Err(())),
         };

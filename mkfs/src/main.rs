@@ -41,10 +41,9 @@ fn parse_args() -> Args {
     };
     args.fs_type = fs_type.unwrap_or("ext2").to_owned();
 
-    while let Some(arg) = iter.next() {
+    for arg in iter {
         match arg.as_str() {
             "-h" | "--help" => args.help = true,
-
             // TODO implement other options
             // TODO get device path
             _ => {
@@ -53,7 +52,6 @@ fn parse_args() -> Args {
             }
         }
     }
-
     args
 }
 

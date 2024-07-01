@@ -20,7 +20,7 @@ use utils::util::get_hostname;
 fn build_env_var(name: &str, value: impl IntoIterator<Item = u8>) -> CString {
     let data: Vec<u8> = name
         .as_bytes()
-        .into_iter()
+        .iter()
         .cloned()
         .chain(iter::once(b'='))
         .chain(value)

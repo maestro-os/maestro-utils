@@ -55,7 +55,6 @@ impl Name {
             "tty" => Some(Self::Tty),
             "comm" => Some(Self::Comm),
             "args" => Some(Self::Args),
-
             _ => None,
         }
     }
@@ -81,101 +80,63 @@ impl Name {
     }
 }
 
-/// Structure representing a display format.
-pub struct DisplayFormat {
-    /// The list of names to be displayed along with their respective display name.
-    pub names: Vec<(Name, String)>,
-}
+/// A display format.
+pub struct DisplayFormat(pub Vec<(Name, String)>);
 
 impl DisplayFormat {
-    /// Creates a new empty instance.
-    pub fn new() -> Self {
-        Self { names: Vec::new() }
-    }
-
     /// Tells whether the display format can be printed.
     pub fn can_print(&self) -> bool {
-        self.names
+        self.0
             .iter()
             .any(|(_, display_name)| !display_name.is_empty())
-    }
-
-    /// Concats the given format to the current.
-    pub fn concat(&mut self, mut other: Self) {
-        self.names.append(&mut other.names);
     }
 }
 
 impl Default for DisplayFormat {
     fn default() -> Self {
-        Self {
-            names: vec![
-                (Name::Pid, Name::Pid.get_default_display().to_owned()),
-                (Name::Tty, Name::Tty.get_default_display().to_owned()),
-                // TODO (Name::Time, Name::Time.get_default_display().to_owned()),
-                (Name::Comm, Name::Comm.get_default_display().to_owned()),
-            ],
-        }
+        Self(vec![
+            (Name::Pid, Name::Pid.get_default_display().to_owned()),
+            (Name::Tty, Name::Tty.get_default_display().to_owned()),
+            // TODO (Name::Time, Name::Time.get_default_display().to_owned()),
+            (Name::Comm, Name::Comm.get_default_display().to_owned()),
+        ])
     }
 }
 
 impl fmt::Display for DisplayFormat {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        for (name, disp) in &self.names {
+        for (name, disp) in &self.0 {
             if !disp.is_empty() {
-                write!(fmt, " {}", disp)?;
+                write!(fmt, " {disp}")?;
             } else {
                 // Add padding the same size as the default display name
-
                 let len = name.get_default_display().len() + 1;
-                for _ in 0..len {
-                    write!(fmt, " ")?;
-                }
+                write!(fmt, "{:<len$}", "")?;
             }
         }
-
         Ok(())
     }
 }
 
-/// A parser for display formats.
-pub struct FormatParser<'a> {
-    /// The format to be parsed.
-    format: &'a str,
-}
-
-impl<'a> FormatParser<'a> {
-    /// Creates a new instance for the given format.
-    pub fn new(format: &'a str) -> Self {
-        Self { format }
-    }
-
-    /// Parses the format and returns the corresponding structure.
-    pub fn yield_format(self) -> Result<DisplayFormat, ()> {
-        let mut names = vec![];
-
-        let s = self
-            .format
-            .split(|ch: char| ch == ',' || ch.is_ascii_whitespace());
-        for n in s {
-            // Splitting name and display name
-            let split = n.find('=').map(|i| {
-                let (name, display_name) = n.split_at(i);
-                (name, display_name[1..].to_owned())
+/// Parses the given display format.
+pub fn parse_display_format(s: &str) -> Result<DisplayFormat, ()> {
+    let names = s
+        .split(|c: char| c == ',' || c.is_ascii_whitespace())
+        .map(|s| {
+            // Split name and display name
+            let split = s.find('=').map(|i| {
+                let (name, display_name) = s.split_at(i);
+                (name, &display_name[1..])
             });
-
             if let Some((name, display_name)) = split {
                 let name = Name::from_str(name).ok_or(())?;
-
-                names.push((name, display_name));
+                Ok((name, display_name.to_owned()))
             } else {
-                let name = Name::from_str(n).ok_or(())?;
+                let name = Name::from_str(s).ok_or(())?;
                 let display_name = name.get_default_display();
-
-                names.push((name, display_name.to_owned()));
+                Ok((name, display_name.to_owned()))
             }
-        }
-
-        Ok(DisplayFormat { names })
-    }
+        })
+        .collect::<Result<_, ()>>()?;
+    Ok(DisplayFormat(names))
 }

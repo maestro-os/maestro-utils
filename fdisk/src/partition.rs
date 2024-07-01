@@ -1,7 +1,7 @@
 //! TODO
 
 use crate::crc32;
-use crate::guid::GUID;
+use crate::guid::Guid;
 use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
@@ -93,9 +93,9 @@ pub struct MBRTable {
 #[repr(C, packed)]
 struct GPTEntry {
     /// The partition type's GUID.
-    partition_type: GUID,
+    partition_type: Guid,
     /// The partition's GUID.
-    guid: GUID,
+    guid: Guid,
     /// The starting LBA.
     start: i64,
     /// The ending LBA.
@@ -129,7 +129,7 @@ pub struct GPT {
     /// The last usable sector.
     last_usable: i64,
     /// The disk's GUID.
-    disk_guid: GUID,
+    disk_guid: Guid,
     /// The LBA of the beginning of the GUID partition entries array.
     entries_start: i64,
     /// The number of entries in the table.
@@ -144,16 +144,16 @@ pub struct GPT {
 #[derive(Debug, Eq, PartialEq)]
 pub enum PartitionTableType {
     /// Master Boot Record.
-    MBR,
+    Mbr,
     /// Globally Unique Identifier Partition Table.
-    GPT,
+    Gpt,
 }
 
 impl PartitionTableType {
     /// Prints known partition types.
     pub fn print_partition_types(&self) {
         match self {
-            Self::MBR => {
+            Self::Mbr => {
                 let types = &[
                     (0x00, "Empty"),
                     (0x01, "FAT12"),
@@ -270,7 +270,7 @@ impl PartitionTableType {
                 }
             }
 
-            Self::GPT => {
+            Self::Gpt => {
                 let types = &[
                     ("EFI System", "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"),
                     (
@@ -809,10 +809,10 @@ impl PartitionTableType {
     }
 
     // TODO Return result instead
-    /// Prompts for informations related to a new partition to be created.
+    /// Prompts for information related to a new partition to be created.
     pub fn prompt_new_partition(&self) -> Partition {
         let (_extended, max_partition_count) = match self {
-            Self::MBR => {
+            Self::Mbr => {
                 // TODO get info from disk, to be passed as argument
                 println!("Partition type");
                 println!("   p   primary (TODO primary, TODO extended, TODO free)"); // TODO
@@ -824,7 +824,7 @@ impl PartitionTableType {
                 (extended, 4)
             }
 
-            Self::GPT => (false, 128),
+            Self::Gpt => (false, 128),
         };
 
         // Ask partition number
@@ -869,8 +869,8 @@ impl PartitionTableType {
 
         // TODO use other values?
         let part_type = match self {
-            Self::MBR => PartitionType::MBR(0),
-            Self::GPT => PartitionType::GPT(GUID([0; 16])),
+            Self::Mbr => PartitionType::Mbr(0),
+            Self::Gpt => PartitionType::Gpt(Guid([0; 16])),
         };
 
         Partition {
@@ -888,7 +888,7 @@ impl PartitionTableType {
     /// Reads partitions from the storage device represented by `dev` and returns the list.
     pub fn read(&self, dev: &mut File, sectors_count: u64) -> io::Result<Option<Vec<Partition>>> {
         match self {
-            Self::MBR => {
+            Self::Mbr => {
                 let mut buff: [u8; size_of::<MBRTable>()] = [0; size_of::<MBRTable>()];
                 dev.seek(SeekFrom::Start(0))?;
                 dev.read_exact(&mut buff)?;
@@ -906,7 +906,7 @@ impl PartitionTableType {
                         start: p.lba_start as _,
                         size: p.sectors_count as _,
 
-                        part_type: PartitionType::MBR(p.partition_type),
+                        part_type: PartitionType::Mbr(p.partition_type),
 
                         uuid: None,
 
@@ -916,7 +916,7 @@ impl PartitionTableType {
                 Ok(Some(parts))
             }
 
-            Self::GPT => {
+            Self::Gpt => {
                 let mut buff: [u8; size_of::<GPT>()] = [0; size_of::<GPT>()];
                 dev.seek(SeekFrom::Start(512))?;
                 dev.read_exact(&mut buff)?;
@@ -967,7 +967,7 @@ impl PartitionTableType {
                         start: entry.start as _,
                         size: (entry.end - entry.start) as _,
 
-                        part_type: PartitionType::GPT(entry.partition_type),
+                        part_type: PartitionType::Gpt(entry.partition_type),
 
                         uuid: Some(entry.guid),
 
@@ -1024,7 +1024,7 @@ impl PartitionTableType {
         sectors_count: u64,
     ) -> io::Result<()> {
         match self {
-            Self::MBR => {
+            Self::Mbr => {
                 let mut mbr = MBRTable {
                     boot: [0; 440],
                     disk_signature: 0,
@@ -1039,7 +1039,7 @@ impl PartitionTableType {
                 }
 
                 for (i, p) in partitions.iter().enumerate() {
-                    let PartitionType::MBR(partition_type) = p.part_type else {
+                    let PartitionType::Mbr(partition_type) = p.part_type else {
                         panic!("invalid partition type of MBR table");
                     };
                     mbr.partitions[i] = MBRPartition {
@@ -1062,20 +1062,20 @@ impl PartitionTableType {
                 dev.write_all(slice)
             }
 
-            Self::GPT => {
+            Self::Gpt => {
                 if partitions.len() > 128 {
                     // TODO error
                     todo!();
                 }
 
                 // Write protective MBR
-                Self::MBR.write(
+                Self::Mbr.write(
                     dev,
                     &[Partition {
                         start: 1,
                         size: min(u32::MAX as u64, sectors_count - 1),
 
-                        part_type: PartitionType::MBR(0xee),
+                        part_type: PartitionType::Mbr(0xee),
 
                         uuid: None,
 
@@ -1095,7 +1095,7 @@ impl PartitionTableType {
                     alternate_hdr_lba: -1,
                     first_usable: 34,
                     last_usable: -34,
-                    disk_guid: GUID::random(),
+                    disk_guid: Guid::random(),
                     entries_start: 2,
                     entries_number: partitions.len() as _,
                     entry_size: 128,
@@ -1106,7 +1106,7 @@ impl PartitionTableType {
                 let parts: Vec<GPTEntry> = partitions
                     .iter()
                     .map(|p| {
-                        let PartitionType::GPT(partition_type) = p.part_type else {
+                        let PartitionType::Gpt(partition_type) = p.part_type else {
                             panic!("invalid partition type of GPT table");
                         };
                         GPTEntry {
@@ -1157,8 +1157,8 @@ impl PartitionTableType {
 impl fmt::Display for PartitionTableType {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MBR => write!(fmt, "dos"),
-            Self::GPT => write!(fmt, "gpt"),
+            Self::Mbr => write!(fmt, "dos"),
+            Self::Gpt => write!(fmt, "gpt"),
         }
     }
 }
@@ -1167,14 +1167,14 @@ impl fmt::Display for PartitionTableType {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PartitionType {
     /// MBR partition type.
-    MBR(u8),
+    Mbr(u8),
     /// GPT partition type.
-    GPT(GUID),
+    Gpt(Guid),
 }
 
 impl Default for PartitionType {
     fn default() -> Self {
-        Self::MBR(0)
+        Self::Mbr(0)
     }
 }
 
@@ -1182,9 +1182,9 @@ impl FromStr for PartitionType {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        GUID::from_str(s)
-            .map(Self::GPT)
-            .or_else(|_| u8::from_str_radix(s, 16).map(Self::MBR))
+        Guid::from_str(s)
+            .map(Self::Gpt)
+            .or_else(|_| u8::from_str_radix(s, 16).map(Self::Mbr))
             .map_err(|_| ())
     }
 }
@@ -1192,8 +1192,8 @@ impl FromStr for PartitionType {
 impl Display for PartitionType {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MBR(n) => write!(fmt, "{n:x}"),
-            Self::GPT(n) => write!(fmt, "{n}"),
+            Self::Mbr(n) => write!(fmt, "{n:x}"),
+            Self::Gpt(n) => write!(fmt, "{n}"),
         }
     }
 }
@@ -1210,7 +1210,7 @@ pub struct Partition {
     pub part_type: PartitionType,
 
     /// The partition's UUID.
-    pub uuid: Option<GUID>,
+    pub uuid: Option<Guid>,
 
     /// Tells whether the partition is bootable.
     pub bootable: bool,
@@ -1253,7 +1253,7 @@ impl PartitionTable {
     ///
     /// If the table is invalid, the function returns an empty MBR table.
     pub fn read(dev: &mut File, sectors_count: u64) -> io::Result<Self> {
-        for t in [PartitionTableType::GPT, PartitionTableType::MBR] {
+        for t in [PartitionTableType::Gpt, PartitionTableType::Mbr] {
             if let Some(partitions) = t.read(dev, sectors_count)? {
                 return Ok(PartitionTable {
                     table_type: t,
@@ -1262,7 +1262,7 @@ impl PartitionTable {
             }
         }
         Ok(PartitionTable {
-            table_type: PartitionTableType::MBR,
+            table_type: PartitionTableType::Mbr,
             partitions: vec![],
         })
     }
@@ -1368,7 +1368,7 @@ impl FromStr for PartitionTable {
                             let Some(val) = value else {
                                 return Err("`uuid` requires a value".into());
                             };
-                            let Ok(val) = GUID::from_str(val) else {
+                            let Ok(val) = Guid::from_str(val) else {
                                 return Err(format!("Invalid value for `uuid`: {val}"));
                             };
                             part.uuid = Some(val);
@@ -1383,7 +1383,7 @@ impl FromStr for PartitionTable {
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
-            table_type: PartitionTableType::MBR, // TODO
+            table_type: PartitionTableType::Mbr, // TODO
             partitions,
         })
     }
@@ -1396,7 +1396,7 @@ mod test {
     #[test]
     fn partitions_serialize0() {
         let table0 = PartitionTable {
-            table_type: PartitionTableType::MBR,
+            table_type: PartitionTableType::Mbr,
             partitions: vec![],
         };
 
@@ -1409,14 +1409,14 @@ mod test {
     #[test]
     fn partitions_serialize1() {
         let table0 = PartitionTable {
-            table_type: PartitionTableType::MBR,
+            table_type: PartitionTableType::Mbr,
             partitions: vec![Partition {
                 start: 0,
                 size: 1,
 
-                part_type: PartitionType::MBR(0xab),
+                part_type: PartitionType::Mbr(0xab),
 
-                uuid: Some(GUID([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])),
+                uuid: Some(Guid([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])),
 
                 bootable: false,
             }],

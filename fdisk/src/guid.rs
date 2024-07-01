@@ -6,9 +6,9 @@ use std::str::FromStr;
 /// Type representing a Globally Unique IDentifier.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C, packed)]
-pub struct GUID(pub [u8; 16]);
+pub struct Guid(pub [u8; 16]);
 
-impl FromStr for GUID {
+impl FromStr for Guid {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -47,7 +47,7 @@ impl FromStr for GUID {
     }
 }
 
-impl GUID {
+impl Guid {
     /// Generates a random GUID.
     pub fn random() -> Self {
         let mut buf = [0; 16];
@@ -56,7 +56,7 @@ impl GUID {
     }
 }
 
-impl fmt::Display for GUID {
+impl fmt::Display for Guid {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         for i in (0..4).rev() {
             write!(fmt, "{:02x}", self.0[i])?;
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     pub fn guid_parse_valid() {
-        let guid = GUID::from_str("c12a7328-f81f-11d2-ba4b-00a0c93ec93b").unwrap();
+        let guid = Guid::from_str("c12a7328-f81f-11d2-ba4b-00a0c93ec93b").unwrap();
         assert_eq!(
             guid.0,
             [
@@ -98,7 +98,7 @@ mod tests {
             ]
         );
 
-        let guid = GUID::from_str("C12A7328-F81F-11D2-BA4B-00A0C93EC93B").unwrap();
+        let guid = Guid::from_str("C12A7328-F81F-11D2-BA4B-00A0C93EC93B").unwrap();
         assert_eq!(
             guid.0,
             [
@@ -110,8 +110,8 @@ mod tests {
 
     #[test]
     pub fn guid_parse_invalid() {
-        GUID::from_str("c12a7328f81f11d2ba4b00a0c93ec93b").unwrap_err();
-        GUID::from_str("c12a7328f81f11d2ba4b00a0c93ec93").unwrap_err();
-        GUID::from_str("c12a7328f81f11d2ba4b00a0c93ec93$").unwrap_err();
+        Guid::from_str("c12a7328f81f11d2ba4b00a0c93ec93b").unwrap_err();
+        Guid::from_str("c12a7328f81f11d2ba4b00a0c93ec93").unwrap_err();
+        Guid::from_str("c12a7328f81f11d2ba4b00a0c93ec93$").unwrap_err();
     }
 }

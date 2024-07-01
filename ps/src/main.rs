@@ -1,11 +1,12 @@
 //! The `ps` command allows to print the list of processes running on the system.
 
+#![feature(option_get_or_insert_default)]
+
 mod format;
 mod process;
-mod util;
 
+use crate::format::parse_display_format;
 use format::DisplayFormat;
-use format::FormatParser;
 use process::Process;
 use process::ProcessIterator;
 use std::process::exit;
@@ -85,11 +86,6 @@ fn error(msg: &str) -> ! {
 // TODO When a PID, UID, GID... is specified, use files' metadata to avoid reading
 /// Parses arguments and returns the selectors list and format.
 fn parse_args() -> io::Result<(Vec<Selector>, DisplayFormat)> {
-    // Results
-    let mut selectors = Vec::new();
-    let mut format = DisplayFormat::new();
-    let mut default_format = true;
-
     // Read users and groups lists
     let users_buff = fs::read_to_string(PASSWD_PATH)?;
     let users: Vec<_> = User::deserialize(&users_buff)
@@ -99,7 +95,9 @@ fn parse_args() -> io::Result<(Vec<Selector>, DisplayFormat)> {
     let groups: Vec<_> = Group::deserialize(&groups_buff)
         .filter_map(Result::ok)
         .collect();
-
+    // Results
+    let mut selectors = Vec::new();
+    let mut format: Option<DisplayFormat> = None;
     // TODO -l and -f
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -107,139 +105,116 @@ fn parse_args() -> io::Result<(Vec<Selector>, DisplayFormat)> {
             "-a" => selectors.push(Selector::Terminal),
             "-A" | "-e" => selectors.push(Selector::All),
             "-d" => selectors.push(Selector::NoLeaders),
-
             "-o" => {
-                if let Some(format_str) = args.next() {
-                    let parser = FormatParser::new(&format_str);
-
-                    match parser.yield_format() {
-                        Ok(f) => {
-                            format.concat(f);
-                            default_format = false;
-                        }
-
-                        Err(_) => error("invalid format"),
-                    }
-                } else {
+                let Some(str) = args.next() else {
                     error("format specification must follow -o");
-                }
+                };
+                let Ok(mut f) = parse_display_format(&str) else {
+                    error("invalid format");
+                };
+                let format = format.get_or_insert_default();
+                format.0.append(&mut f.0);
             }
-
             "-p" => {
-                if let Some(pids_str) = args.next() {
-                    let iter = match util::parse_nbr_list(&pids_str) {
-                        Ok(list) => list.into_iter(),
-
-                        Err(_) => error("process ID list syntax error"),
-                    };
-
-                    let mut pids = iter.map(Selector::Pid).collect();
-                    selectors.append(&mut pids);
-                } else {
+                let Some(pids_str) = args.next() else {
                     error("list of process IDs must follow -p");
-                }
+                };
+                let pids: Result<Vec<_>, _> = pids_str
+                    .split(|c: char| c.is_ascii_whitespace())
+                    .map(|s| s.parse().map(Selector::Pid))
+                    .collect();
+                let Ok(mut pids) = pids else {
+                    error("process ID list syntax error");
+                };
+                selectors.append(&mut pids);
             }
-
             "-t" => {
                 if let Some(termlist) = args.next() {
-                    let mut terms = util::parse_str_list(&termlist)
-                        .into_iter()
-                        .map(Selector::Term)
-                        .collect();
-
-                    selectors.append(&mut terms);
-                } else {
+                    let terms = termlist
+                        .split(|c: char| c.is_ascii_whitespace())
+                        .map(String::from)
+                        .map(Selector::Term);
+                    selectors.extend(terms);
                 }
             }
-
             "-u" => {
                 if let Some(users_list) = args.next() {
-                    util::parse_str_list(&users_list)
-                        .into_iter()
-                        .for_each(|user| match users.iter().find(|u| u.login_name == user) {
-                            Some(user) => selectors.push(Selector::Uid(user.uid)),
-
-                            None => match user.parse::<u32>() {
-                                Ok(uid) => selectors.push(Selector::Uid(uid)),
-                                Err(_) => {}
-                            },
+                    users_list
+                        .split(|c: char| c.is_ascii_whitespace())
+                        .for_each(|login| {
+                            let user = users.iter().find(|u| u.login_name == login);
+                            match user {
+                                Some(user) => selectors.push(Selector::Uid(user.uid)),
+                                None => {
+                                    if let Ok(uid) = login.parse::<u32>() {
+                                        selectors.push(Selector::Uid(uid));
+                                    }
+                                }
+                            }
                         });
                 } else {
                     selectors.push(Selector::Uid(get_euid()));
                 }
             }
-
             "-U" => {
-                if let Some(users_list) = args.next() {
-                    util::parse_str_list(&users_list)
-                        .into_iter()
-                        .for_each(|user| match users.iter().find(|u| u.login_name == user) {
-                            Some(user) => selectors.push(Selector::Ruid(user.uid)),
-
-                            None => match user.parse::<u32>() {
-                                Ok(uid) => selectors.push(Selector::Ruid(uid)),
-                                Err(_) => {}
-                            },
-                        });
-                } else {
+                let Some(users_list) = args.next() else {
                     error("list of real users must follow -U");
-                }
+                };
+                users_list
+                    .split(|c: char| c.is_ascii_whitespace())
+                    .for_each(|user| match users.iter().find(|u| u.login_name == user) {
+                        Some(user) => selectors.push(Selector::Ruid(user.uid)),
+                        None => {
+                            if let Ok(uid) = user.parse::<u32>() {
+                                selectors.push(Selector::Ruid(uid));
+                            }
+                        }
+                    });
             }
-
             "-g" => {
                 if let Some(groups_list) = args.next() {
-                    util::parse_str_list(&groups_list)
-                        .into_iter()
+                    groups_list
+                        .split(|c: char| c.is_ascii_whitespace())
                         .for_each(
                             |group| match groups.iter().find(|g| g.group_name == group) {
                                 Some(group) => selectors.push(Selector::Gid(group.gid)),
-
-                                None => match group.parse::<u32>() {
-                                    Ok(gid) => selectors.push(Selector::Gid(gid)),
-                                    Err(_) => {}
-                                },
+                                None => {
+                                    if let Ok(gid) = group.parse::<u32>() {
+                                        selectors.push(Selector::Gid(gid));
+                                    }
+                                }
                             },
                         );
                 } else {
                     selectors.push(Selector::Gid(get_egid()));
                 }
             }
-
             "-G" => {
-                if let Some(groups_list) = args.next() {
-                    util::parse_str_list(&groups_list)
-                        .into_iter()
-                        .for_each(
-                            |group| match groups.iter().find(|g| g.group_name == group) {
-                                Some(group) => selectors.push(Selector::Rgid(group.gid)),
-
-                                None => match group.parse::<u32>() {
-                                    Ok(gid) => selectors.push(Selector::Rgid(gid)),
-                                    Err(_) => {}
-                                },
-                            },
-                        );
-                } else {
+                let Some(groups_list) = args.next() else {
                     error("list of real groups must follow -G");
-                }
+                };
+                groups_list
+                    .split(|c: char| c.is_ascii_whitespace())
+                    .for_each(
+                        |group| match groups.iter().find(|g| g.group_name == group) {
+                            Some(group) => selectors.push(Selector::Rgid(group.gid)),
+                            None => {
+                                if let Ok(gid) = group.parse::<u32>() {
+                                    selectors.push(Selector::Rgid(gid));
+                                }
+                            }
+                        },
+                    );
             }
-
             _ => error("error: garbage option"),
         }
     }
-
     // If no selector is specified, use defaults
     if selectors.is_empty() {
         // TODO Select only processes that share the same controlling terminal
         selectors.push(Selector::Uid(get_euid()));
     }
-
-    // If no format is specified, use default
-    if default_format {
-        format = DisplayFormat::default();
-    }
-
-    Ok((selectors, format))
+    Ok((selectors, format.unwrap_or_default()))
 }
 
 fn main() {

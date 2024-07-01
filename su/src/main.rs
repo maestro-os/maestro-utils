@@ -43,18 +43,16 @@ fn parse_args(args: &Vec<String>) -> Args<'_> {
 
     // Parsing options if present
     if has_options {
-        while let Some(a) = iter.next() {
-            if a == "-" {
+        for arg in iter.by_ref() {
+            if arg == "-" {
                 break;
             }
-
             // TODO
         }
     }
 
-    result.user = iter.next().map(|s| s.as_str());
-    result.args = iter.map(|s| s.as_str()).collect();
-
+    result.user = iter.next().map(String::as_str);
+    result.args = iter.map(String::as_str).collect();
     result
 }
 
@@ -73,12 +71,12 @@ fn main() {
         // TODO Change user
 
         // Running the shell
-        let status = Command::new(&shell)
+        let status = Command::new(shell)
             .args(args.args)
             // TODO Set env
             .status()
             .unwrap_or_else(|_| {
-                eprintln!("su: Failed to run shell `{}`", shell);
+                eprintln!("su: Failed to run shell `{shell}`");
                 exit(1);
             });
 

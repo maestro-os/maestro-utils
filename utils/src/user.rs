@@ -102,7 +102,7 @@ impl User<'_> {
         if self.password.is_empty() || self.password == "x" {
             return None;
         }
-        Some(check_password(&self.password, pass))
+        Some(check_password(self.password, pass))
     }
 }
 
@@ -175,7 +175,7 @@ impl Shadow<'_> {
 
     /// Check the given (not hashed) password `pass` against `self`.
     pub fn check_password(&self, pass: &str) -> bool {
-        check_password(&self.password, pass)
+        check_password(self.password, pass)
     }
 }
 
