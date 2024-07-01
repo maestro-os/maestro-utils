@@ -108,7 +108,7 @@ fn main() {
         );
         // TODO print details on fs (use factory)
 
-        let confirm = prompt(Some("Proceed anyway? (y/N) "), false)
+        let confirm = prompt("Proceed anyway? (y/N) ", false)
             .map(|s| s.to_lowercase() == "y")
             .unwrap_or(false);
         if !confirm {

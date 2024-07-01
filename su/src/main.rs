@@ -1,4 +1,4 @@
-//! `su` is a command allowing to run an other command with a substitute user and group ID.
+//! `su` is a command allowing to run another command with a substitute user and group ID.
 
 use std::env;
 use std::process::exit;
@@ -6,12 +6,12 @@ use std::process::Command;
 
 use utils::prompt::prompt;
 
-/// Structure representing the command's arguments.
+/// The command's arguments.
 #[derive(Default)]
 struct Args<'s> {
     /// The user which executes the command. If None, using root.
     user: Option<&'s str>,
-    /// The group which executtes the command. If None, using root.
+    /// The group which executes the command. If None, using root.
     group: Option<&'s str>,
 
     /// The shell to execute. If None, using the default.
@@ -66,7 +66,7 @@ fn main() {
     // TODO Read user's entry
     let shell = args.shell.unwrap_or("TODO");
 
-    let _pass = prompt(None, true);
+    let _pass = prompt("Password: ", true);
     let correct = false; // TODO Check password against user's
 
     if correct {

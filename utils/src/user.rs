@@ -3,16 +3,12 @@
 
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use libc::{gid_t, uid_t};
 use rand_core::OsRng;
-use std::error::Error;
 use std::fmt::Formatter;
-use std::fs::File;
 use std::fs::OpenOptions;
-use std::io::BufRead;
-use std::io::BufReader;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::{fmt, io};
 
 /// The path to the passwd file.
@@ -42,6 +38,10 @@ pub fn check_password(hash: &str, pass: &str) -> bool {
         .is_ok()
 }
 
+/// An error occurring when meeting an invalid entry.
+#[derive(Debug)]
+pub struct InvalidEntry;
+
 /// Wrapper for [`Option`] allowing to display a value if [`Some`], or nothing if [`None`].
 struct OptionDisplay<T: fmt::Display>(Option<T>);
 
@@ -55,24 +55,46 @@ impl<T: fmt::Display> fmt::Display for OptionDisplay<T> {
 }
 
 /// A system user, present in the `passwd` file.
-pub struct User {
+pub struct User<'s> {
     /// The user's login name.
-    pub login_name: String,
+    pub login_name: &'s str,
     /// The user's encrypted password. If `x`, the password is located in the shadow file.
-    pub password: String,
+    pub password: &'s str,
     /// The user ID.
     pub uid: u32,
     /// The user's group ID.
     pub gid: u32,
     /// User comment.
-    pub comment: String,
+    pub comment: &'s str,
     /// User's home path.
-    pub home: PathBuf,
+    pub home: &'s Path,
     /// User's command interpreter.
-    pub interpreter: String,
+    pub interpreter: &'s str,
 }
 
-impl User {
+impl User<'_> {
+    /// Deserializes entries from the given buffer `buf`.
+    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<User, InvalidEntry>> {
+        buf.split('\n')
+            .map(|line| {
+                let mut vals = line.split(':');
+                let ent = User {
+                    login_name: vals.next()?,
+                    password: vals.next()?,
+                    uid: vals.next()?.parse().ok()?,
+                    gid: vals.next()?.parse().ok()?,
+                    comment: vals.next()?,
+                    home: Path::new(vals.next()?),
+                    interpreter: vals.next()?,
+                };
+                if vals.next().is_some() {
+                    return None;
+                }
+                Some(ent)
+            })
+            .map(|ent| ent.ok_or(InvalidEntry))
+    }
+
     /// Check the given (not hashed) password `pass` against the current entry.
     ///
     /// If the function returns None, the callee must use the shadow entry.
@@ -84,7 +106,7 @@ impl User {
     }
 }
 
-impl fmt::Display for User {
+impl fmt::Display for User<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
@@ -101,11 +123,11 @@ impl fmt::Display for User {
 }
 
 /// A shadow entry, present in the `shadow` file.
-pub struct Shadow {
+pub struct Shadow<'s> {
     /// The user's login name.
-    pub login_name: String,
+    pub login_name: &'s str,
     /// The user's encrypted password.
-    pub password: String,
+    pub password: &'s str,
     /// The date of the last password change in number of days since the Unix Epoch.
     pub last_change: u32,
     /// The minimum number of days to wait before the user becomes usable.
@@ -123,17 +145,41 @@ pub struct Shadow {
     /// denied.
     pub account_expiration: Option<u32>,
     /// Reserved field.
-    pub reserved: String,
+    pub reserved: &'s str,
 }
 
-impl Shadow {
+impl Shadow<'_> {
+    /// Deserializes entries from the given buffer `buf`.
+    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<Shadow, InvalidEntry>> {
+        buf.split('\n')
+            .map(|line| {
+                let mut vals = line.split(':');
+                let ent = Shadow {
+                    login_name: vals.next()?,
+                    password: vals.next()?,
+                    last_change: vals.next()?.parse().unwrap_or(0),
+                    minimum_age: vals.next()?.parse().ok(),
+                    maximum_age: vals.next()?.parse().ok(),
+                    warning_period: vals.next()?.parse().ok(),
+                    inactivity_period: vals.next()?.parse().ok(),
+                    account_expiration: vals.next()?.parse().ok(),
+                    reserved: vals.next()?,
+                };
+                if vals.next().is_some() {
+                    return None;
+                }
+                Some(ent)
+            })
+            .map(|ent| ent.ok_or(InvalidEntry))
+    }
+
     /// Check the given (not hashed) password `pass` against `self`.
     pub fn check_password(&self, pass: &str) -> bool {
         check_password(&self.password, pass)
     }
 }
 
-impl fmt::Display for Shadow {
+impl fmt::Display for Shadow<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
@@ -152,18 +198,39 @@ impl fmt::Display for Shadow {
 }
 
 /// A system group, present in `group`.
-pub struct Group {
+pub struct Group<'s> {
     /// The group's name.
-    pub group_name: String,
+    pub group_name: &'s str,
     /// The encrypted group's password.
-    pub password: String,
+    pub password: &'s str,
     /// The group's ID.
     pub gid: u32,
-    /// The list of users member of this group, comma-separated.
-    pub users_list: String,
+    /// The list of user members of this group, comma-separated.
+    pub users_list: &'s str,
 }
 
-impl fmt::Display for Group {
+impl Group<'_> {
+    /// Deserializes entries from the given buffer `buf`.
+    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<Group, InvalidEntry>> {
+        buf.split('\n')
+            .map(|line| {
+                let mut vals = line.split(':');
+                let ent = Group {
+                    group_name: vals.next()?,
+                    password: vals.next()?,
+                    gid: vals.next()?.parse().ok()?,
+                    users_list: vals.next()?,
+                };
+                if vals.next().is_some() {
+                    return None;
+                }
+                Some(ent)
+            })
+            .map(|ent| ent.ok_or(InvalidEntry))
+    }
+}
+
+impl fmt::Display for Group<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
@@ -171,14 +238,6 @@ impl fmt::Display for Group {
             self.group_name, self.password, self.gid, self.users_list
         )
     }
-}
-
-/// Reads and parses the file at path `path`.
-fn read(path: &Path) -> io::Result<impl Iterator<Item = io::Result<Vec<String>>>> {
-    let file = File::open(path)?;
-    Ok(BufReader::new(file)
-        .lines()
-        .map(|l| Ok(l?.split(':').map(str::to_owned).collect::<Vec<_>>())))
 }
 
 /// Writes the file at path `path` with data `data`.
@@ -194,81 +253,14 @@ pub fn write<I: IntoIterator<Item = E>, E: fmt::Display>(path: &Path, data: I) -
     Ok(())
 }
 
-/// Reads the passwd file.
-///
-/// `path` is the path to the file.
-pub fn read_passwd(path: &Path) -> Result<Vec<User>, Box<dyn Error>> {
-    read(path)?
-        .into_iter()
-        .enumerate()
-        .map(|(i, data)| {
-            let data = data?;
-            if data.len() != 7 {
-                return Err(format!("Invalid entry on line `{}`", i + 1).into());
-            }
-
-            Ok(User {
-                login_name: data[0].clone(),
-                password: data[1].clone(),
-                uid: data[2].parse::<_>()?,
-                gid: data[3].parse::<_>()?,
-                comment: data[4].clone(),
-                home: data[5].clone().into(),
-                interpreter: data[6].clone(),
-            })
-        })
-        .collect()
+/// Returns the current effective UID.
+pub fn get_euid() -> uid_t {
+    unsafe { libc::geteuid() }
 }
 
-/// Reads the shadow file.
-///
-/// `path` is the path to the file.
-pub fn read_shadow(path: &Path) -> Result<Vec<Shadow>, Box<dyn Error>> {
-    read(path)?
-        .into_iter()
-        .enumerate()
-        .map(|(i, data)| {
-            let data = data?;
-            if data.len() != 9 {
-                return Err(format!("Invalid entry on line `{}`", i + 1).into());
-            }
-
-            Ok(Shadow {
-                login_name: data[0].clone(),
-                password: data[1].clone(),
-                last_change: data[2].parse::<_>().unwrap_or(0),
-                minimum_age: data[3].parse::<_>().ok(),
-                maximum_age: data[4].parse::<_>().ok(),
-                warning_period: data[5].parse::<_>().ok(),
-                inactivity_period: data[6].parse::<_>().ok(),
-                account_expiration: data[7].parse::<_>().ok(),
-                reserved: data[8].clone(),
-            })
-        })
-        .collect()
-}
-
-/// Reads the group file.
-///
-/// `path` is the path to the file.
-pub fn read_group(path: &Path) -> Result<Vec<Group>, Box<dyn Error>> {
-    read(path)?
-        .into_iter()
-        .enumerate()
-        .map(|(i, data)| {
-            let data = data?;
-            if data.len() != 4 {
-                return Err(format!("Invalid entry on line `{}`", i + 1).into());
-            }
-
-            Ok(Group {
-                group_name: data[0].clone(),
-                password: data[1].clone(),
-                gid: data[2].parse::<_>()?,
-                users_list: data[3].clone(),
-            })
-        })
-        .collect()
+/// Returns the current effective GID.
+pub fn get_egid() -> gid_t {
+    unsafe { libc::getegid() }
 }
 
 /// Sets the current user.

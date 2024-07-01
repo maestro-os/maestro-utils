@@ -818,7 +818,7 @@ impl PartitionTableType {
                 println!("   p   primary (TODO primary, TODO extended, TODO free)"); // TODO
                 println!("   e   extended (container for logical partitions)"); // TODO
 
-                let extended = prompt(Some("Select (default p): "), false)
+                let extended = prompt("Select (default p): ", false)
                     .map(|s| s == "e") // TODO handle invalid prompt (other than `p` and `e`)
                     .unwrap_or(false);
                 (extended, 4)
@@ -831,7 +831,7 @@ impl PartitionTableType {
         let first = 1; // TODO get from disk
         let prompt_str =
             format!("Partition number ({first}-{max_partition_count}, default {first}): ");
-        let partition_number = prompt(Some(&prompt_str), false)
+        let partition_number = prompt(&prompt_str, false)
             .filter(|s| !s.is_empty())
             .map(|s| s.parse::<usize>())
             .transpose()
@@ -844,7 +844,7 @@ impl PartitionTableType {
         let prompt_str = format!(
             "First sector ({first_available}-{last_available}, default {first_available}): ",
         );
-        let start = prompt(Some(&prompt_str), false)
+        let start = prompt(&prompt_str, false)
             .filter(|s| !s.is_empty())
             .map(|s| s.parse::<u64>())
             .transpose()
@@ -855,7 +855,7 @@ impl PartitionTableType {
         let prompt_str = format!(
             "Last sector, +/-sectors or +/-size{{K,M,G,T,P}} ({start}-{last_available}, default {last_available}): ",
         );
-        let end = prompt(Some(&prompt_str), false)
+        let end = prompt(&prompt_str, false)
             .map(|s| {
                 // TODO parse suffix
                 s.parse::<u64>()

@@ -3,7 +3,6 @@
 //! The `sfdisk` is also implemented in the same program, it has the purpose as `fdisk`, except it
 //! uses scripting instead of prompting.
 
-#![feature(exclusive_range_pattern)]
 #![feature(iter_array_chunks)]
 
 mod crc32;
@@ -196,7 +195,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
         "m" => print_cmd_help(),
 
         "I" => {
-            if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+            if let Some(script_path) = prompt("Enter script file name: ", false) {
                 let script_path = PathBuf::from(script_path);
 
                 match import_script(disk, &script_path) {
@@ -207,7 +206,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
         }
 
         "O" => {
-            if let Some(script_path) = prompt(Some("Enter script file name: "), false) {
+            if let Some(script_path) = prompt("Enter script file name: ", false) {
                 let script_path = PathBuf::from(script_path);
 
                 match export_script(disk, &script_path) {
@@ -220,7 +219,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
         "w" => {
             // TODO ask only if modifications have been made
             let prompt_str = format!("Write changes to `{}`? (y/n) ", disk_path.display());
-            let confirm = prompt(Some(&prompt_str), false)
+            let confirm = prompt(&prompt_str, false)
                 .map(|s| s == "y")
                 .unwrap_or(false);
             if !confirm {
@@ -327,7 +326,7 @@ fn main() {
             .unwrap() // TODO handle error
             .unwrap(); // TODO handle error
 
-        while let Some(cmd) = prompt(Some("Command (m for help): "), false) {
+        while let Some(cmd) = prompt("Command (m for help): ", false) {
             handle_cmd(&cmd, disk_path, &mut disk);
         }
     } else {
