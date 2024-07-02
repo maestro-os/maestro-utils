@@ -3,7 +3,6 @@
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::mem::size_of;
-use std::ops::Shl;
 use std::os::unix::ffi::OsStrExt;
 use std::slice;
 use std::thread;

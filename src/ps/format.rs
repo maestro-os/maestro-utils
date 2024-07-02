@@ -1,4 +1,4 @@
-//! This module implement display formats.
+//! Process display formats.
 
 use std::fmt;
 
@@ -134,7 +134,7 @@ pub fn parse_display_format(s: &str) -> Result<DisplayFormat, ()> {
             } else {
                 let name = Name::from_str(s).ok_or(())?;
                 let display_name = name.get_default_display();
-                Ok((name, display_name.to_owned()))
+                Ok((name, display_name.into()))
             }
         })
         .collect::<Result<_, ()>>()?;

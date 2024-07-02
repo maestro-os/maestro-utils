@@ -4,7 +4,7 @@ use std::io::Write;
 use std::process::exit;
 use std::{fs, io};
 
-fn main() {
+pub fn main() {
     let msg = fs::read("/etc/nologin.txt").ok();
     let msg = msg
         .as_deref()

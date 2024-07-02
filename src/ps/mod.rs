@@ -1,11 +1,9 @@
 //! The `ps` command allows to print the list of processes running on the system.
 
-#![feature(option_get_or_insert_default)]
-
 mod format;
 mod process;
 
-use crate::format::parse_display_format;
+use format::parse_display_format;
 use format::DisplayFormat;
 use process::Process;
 use process::ProcessIterator;
@@ -99,21 +97,21 @@ fn parse_args() -> io::Result<(Vec<Selector>, DisplayFormat)> {
     let mut selectors = Vec::new();
     let mut format: Option<DisplayFormat> = None;
     // TODO -l and -f
-    let mut args = env::args().skip(1);
+    let mut args = env::args();
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "-a" => selectors.push(Selector::Terminal),
             "-A" | "-e" => selectors.push(Selector::All),
             "-d" => selectors.push(Selector::NoLeaders),
             "-o" => {
-                let Some(str) = args.next() else {
+                let Some(fmt) = args.next() else {
                     error("format specification must follow -o");
                 };
-                let Ok(mut f) = parse_display_format(&str) else {
+                let Ok(mut fmt) = parse_display_format(&fmt) else {
                     error("invalid format");
                 };
                 let format = format.get_or_insert_default();
-                format.0.append(&mut f.0);
+                format.0.append(&mut fmt.0);
             }
             "-p" => {
                 let Some(pids_str) = args.next() else {
@@ -135,6 +133,8 @@ fn parse_args() -> io::Result<(Vec<Selector>, DisplayFormat)> {
                         .map(String::from)
                         .map(Selector::Term);
                     selectors.extend(terms);
+                } else {
+                    // TODO
                 }
             }
             "-u" => {
@@ -217,7 +217,7 @@ fn parse_args() -> io::Result<(Vec<Selector>, DisplayFormat)> {
     Ok((selectors, format.unwrap_or_default()))
 }
 
-fn main() {
+pub fn main() {
     let (selectors, format) = match parse_args() {
         Ok(args) => args,
         Err(e) => {

@@ -2,8 +2,7 @@
 
 mod status_parser;
 
-use crate::format::DisplayFormat;
-use crate::format::Name;
+use super::format::{DisplayFormat, Name};
 use status_parser::StatusParser;
 use std::fmt;
 use std::fs;

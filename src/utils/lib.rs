@@ -1,4 +1,4 @@
-//! Features common to several commands.
+//! Features utils to several commands.
 
 pub mod disk;
 pub mod prompt;

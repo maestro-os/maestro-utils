@@ -1,10 +1,11 @@
 //! The `mount` command allows to mount a filesystem.
 
-use std::env;
-use std::ffi::c_ulong;
+use std::env::ArgsOs;
 use std::ffi::CString;
+use std::ffi::{c_ulong, OsStr};
 use std::io;
 use std::io::Error;
+use std::os::unix::ffi::OsStrExt;
 use std::process::exit;
 use std::ptr::null;
 
@@ -72,14 +73,12 @@ const MS_MGC_VAL: c_ulong = 0xc0ed0000;
 const MS_MGC_MSK: c_ulong = 0xffff0000;
 
 /// Prints the command's usage.
-///
-/// `bin` is the name of the current binary.
-fn print_usage(bin: &str) {
+fn print_usage() {
     eprintln!("Usage:");
-    eprintln!(" {bin} [-h]");
-    eprintln!(" {bin} -l");
-    eprintln!(" {bin} -a");
-    eprintln!(" {bin} [device] dir");
+    eprintln!(" mount [-h]");
+    eprintln!(" mount -l");
+    eprintln!(" mount -a");
+    eprintln!(" mount [device] dir");
     eprintln!();
     eprintln!("Options:");
     eprintln!(" -h:\t\tprints usage");
@@ -94,30 +93,22 @@ fn print_usage(bin: &str) {
 /// Arguments:
 /// TODO
 pub fn mount_fs(
-    source: &str,
-    target: &str,
+    source: &OsStr,
+    target: &OsStr,
     fs_type: Option<&str>,
     mountflags: c_ulong,
-    data: Option<&[u8]>,
 ) -> io::Result<()> {
-    let source_c = CString::new(source).unwrap();
-    let target_c = CString::new(target).unwrap();
-
+    let source_c = CString::new(source.as_bytes()).unwrap();
+    let target_c = CString::new(target.as_bytes()).unwrap();
     let fs_type_c = fs_type.map(|fs_type| CString::new(fs_type).unwrap());
-    let fs_type_ptr = fs_type_c
-        .as_ref()
-        .map(|fs_type| fs_type.as_ptr())
-        .unwrap_or(null::<_>());
-
-    let data = data.map(|data| data.as_ptr()).unwrap_or(null::<_>());
-
+    let fs_type_ptr = fs_type_c.as_ref().map(|s| s.as_ptr()).unwrap_or(null());
     let ret = unsafe {
         libc::mount(
             source_c.as_ptr(),
             target_c.as_ptr(),
             fs_type_ptr,
             mountflags,
-            data as _,
+            null(),
         )
     };
     if ret < 0 {
@@ -126,49 +117,42 @@ pub fn mount_fs(
     Ok(())
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let bin = args.first().map(String::as_str).unwrap_or("mount");
-
+pub fn main(args: ArgsOs) {
+    let args: Vec<_> = args.skip(1).collect();
     if args.is_empty() {
-        print_usage(bin);
+        print_usage();
         exit(1);
     }
-
-    let a: Vec<&str> = args.iter().map(String::as_str).collect();
-    match a[1..] {
-        [] => {
-            print_usage(bin);
-            exit(1);
-        }
-
-        ["-h"] => {
-            print_usage(bin);
+    let Some(first) = args.first() else {
+        print_usage();
+        exit(1);
+    };
+    match first.as_bytes() {
+        b"-h" => {
+            print_usage();
             exit(0);
         }
-
-        ["-l"] => {
+        b"-l" => {
             // TODO print /etc/mtab to stdout
             todo!();
         }
-
-        ["-a"] => {
+        b"-a" => {
             // TODO iterate on entries of /etc/fstab and mount all
             todo!();
         }
-
+        _ => {}
+    }
+    match &args[..] {
         [device, dir] => {
             // TODO detect filesystem type?
-            mount_fs(device, dir, Some("ext2"), 0, None).unwrap(); // TODO handle error
+            mount_fs(device, dir, Some("ext2"), 0).unwrap(); // TODO handle error
         }
-
         [_dir] => {
             // TODO lookup in /etc/fstab to get device, then mount
             todo!();
         }
-
         _ => {
-            print_usage(bin);
+            print_usage();
             exit(1);
         }
     }
