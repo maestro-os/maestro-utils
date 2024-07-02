@@ -32,4 +32,4 @@ jobs:
     needs: clippy
     steps:
       - name: Build documentation
-        run: cargo doc
+        run: cargo doc -j1
