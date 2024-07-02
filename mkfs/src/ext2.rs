@@ -175,7 +175,7 @@ struct Superblock {
 impl Superblock {
     /// Returns the size of a block.
     pub fn get_block_size(&self) -> u64 {
-        util::pow2(self.s_log_block_size + 10) as _
+        1 << (self.s_log_block_size + 10)
     }
 
     /// Returns the size of an inode.

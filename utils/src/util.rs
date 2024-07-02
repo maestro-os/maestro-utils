@@ -59,25 +59,8 @@ pub fn get_random(buf: &mut [u8]) {
     }
 }
 
-/// Computes 2^^n on unsigned integers (where `^^` is an exponent).
-///
-/// If n < 0, the behaviour is undefined.
-pub fn pow2<T>(n: T) -> T
-where
-    T: From<u8> + Shl<Output = T>,
-{
-    T::from(1) << n
-}
-
 /// A displayable number of bytes.
 pub struct ByteSize(pub u64);
-
-impl ByteSize {
-    /// Creates a size from a given number of sectors.
-    pub fn from_sectors_count(cnt: u64) -> Self {
-        Self(cnt * 512)
-    }
-}
 
 impl fmt::Display for ByteSize {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -94,14 +77,13 @@ impl fmt::Display for ByteSize {
             4 => "TiB",
             5 => "PiB",
             6 => "EiB",
-            7 => "ZiB",
-            8 => "YiB",
+            // Higher orders would overflow a `u64`
             _ => {
                 order = 0;
                 "bytes"
             }
         };
-        let nbr = self.0 / pow2(10 * order as u64);
+        let nbr = self.0 >> (10 * order as u64);
         write!(fmt, "{nbr} {suffix}")
     }
 }
