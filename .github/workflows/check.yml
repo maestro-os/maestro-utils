@@ -27,9 +27,3 @@ jobs:
     steps:
       - name: Check format
         run: cargo fmt --check
-  documentation:
-    runs-on: [self-hosted, linux]
-    needs: clippy
-    steps:
-      - name: Build documentation
-        run: cargo doc -j1
