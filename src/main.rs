@@ -10,6 +10,7 @@ mod mount;
 mod nologin;
 mod ps;
 mod rmmod;
+mod umount;
 
 use std::env;
 use utils::error;
@@ -34,7 +35,7 @@ fn main() {
             todo!()
         }
         "mount" => mount::main(args),
-        "umount" => todo!(),
+        "umount" => umount::main(args),
         "nologin" => nologin::main(),
         "powerctl" => todo!(),
         "halt" => todo!(),
