@@ -1,6 +1,6 @@
 //! TODO doc
 
-use crate::partition::PartitionTable;
+use super::partition::PartitionTable;
 use libc::c_long;
 use libc::ioctl;
 use std::fmt;

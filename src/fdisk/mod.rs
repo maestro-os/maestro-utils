@@ -1,18 +1,16 @@
-//! `fdisk` is an utility command used to manipulate disk partition tables.
+//! `fdisk` is a utility command used to manipulate disk partition tables.
 //!
 //! The `sfdisk` is also implemented in the same program, it has the purpose as `fdisk`, except it
 //! uses scripting instead of prompting.
-
-#![feature(iter_array_chunks)]
 
 mod crc32;
 mod disk;
 mod guid;
 mod partition;
 
-use crate::partition::PartitionTable;
 use disk::Disk;
-use std::env;
+use partition::PartitionTable;
+use std::env::ArgsOs;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io;
@@ -21,22 +19,16 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
+use utils::error;
 use utils::prompt::prompt;
 
 /// Structure storing command line arguments.
 #[derive(Default)]
 struct Args {
-    /// The name of the current program used in command line.
-    prog: String,
-    /// Tells whether the command is run in scripting mode.
-    script: bool,
-
     /// If true, print command line help.
     help: bool,
-
     /// If true, list partitions instead of modifying the table.
     list: bool,
-
     /// The list of disk devices.
     disks: Vec<PathBuf>,
 }
@@ -51,38 +43,34 @@ impl Args {
     }
 }
 
-fn parse_args() -> Args {
-    let mut args: Args = Default::default();
-    let mut iter = env::args();
-    args.prog = iter.next().unwrap_or("fdisk".to_owned());
-    args.script = args.prog.split('/').last() == Some("sfdisk");
-    for arg in iter {
-        match arg.as_str() {
-            "-h" | "--help" => args.help = true,
-            "-l" | "--list" => args.list = true,
+fn parse_args(args: ArgsOs) -> Args {
+    let mut res: Args = Default::default();
+    for arg in args {
+        match arg.to_str() {
+            Some("-h" | "--help") => res.help = true,
+            Some("-l" | "--list") => res.list = true,
             // TODO implement other options
-            _ => args.disks.push(arg.into()),
+            _ => res.disks.push(arg.into()),
         }
     }
-    args
+    res
 }
 
 /// Prints command usage.
-///
-/// `prog` is the name of the current program.
-fn print_usage(prog: &str) {
-    eprintln!("{prog}: bad usage");
-    eprintln!("Try '{prog} --help' for more information.");
+fn print_usage() {
+    eprintln!("fdisk: bad usage");
+    eprintln!("Try 'fdisk --help' for more information.");
 }
 
 /// Prints command help.
 ///
 /// - `prog` is the name of the current program.
 /// - `script` tells whether the program is run as `sfdisk`.
-fn print_help(prog: &str, script: bool) {
+fn print_help(script: bool) {
+    let bin = if !script { "fdisk" } else { "sfdisk" };
     println!();
     println!("Usage:");
-    println!(" {prog} [options] [disks...]");
+    println!(" {bin} [options] [disks...]");
     println!();
     println!("Prints the list of partitions or modify it.");
     println!();
@@ -268,15 +256,15 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
     println!();
 }
 
-fn main() {
-    let args = parse_args();
+pub fn main(script: bool, args: ArgsOs) {
+    let args = parse_args(args);
 
     if !args.is_valid() {
-        print_usage(&args.prog);
+        print_usage();
         exit(1);
     }
     if args.help {
-        print_help(&args.prog, args.script);
+        print_help(script);
         exit(0);
     }
 
@@ -286,38 +274,27 @@ fn main() {
         } else {
             match Disk::list() {
                 Ok(disks) => disks.into_iter(),
-
-                Err(e) => {
-                    eprintln!("{}: cannot list disks: {e}", args.prog);
-                    exit(1);
-                }
+                Err(e) => error("fdisk", format_args!("cannot list disks: {e}")),
             }
         };
-
         for path in iter {
             match Disk::read(path.clone()) {
-                Ok(Some(disk)) => print!("{}", disk),
-
+                Ok(Some(disk)) => print!("{disk}"),
                 Ok(None) => {
-                    eprintln!(
-                        "{}: cannot open {}: Invalid argument",
-                        args.prog,
-                        path.display()
+                    error(
+                        "fdisk",
+                        format_args!("cannot open {}: Invalid argument", path.display()),
                     );
                 }
-
-                Err(e) => {
-                    eprintln!("{}: cannot open {}: {e}", args.prog, path.display());
-                }
+                Err(e) => error("fdisk", format_args!("cannot open {}: {e}", path.display())),
             }
         }
-
         return;
     }
 
     let disk_path = &args.disks[0];
 
-    if !args.script {
+    if !script {
         let mut disk = Disk::read(disk_path.clone())
             .unwrap() // TODO handle error
             .unwrap(); // TODO handle error

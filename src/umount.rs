@@ -36,9 +36,8 @@ pub fn main(args: ArgsOs) {
     match &args[..] {
         [opt, path] if opt == "-R" => {
             // List active mount points
-            let content = fs::read_to_string("/etc/mtab").unwrap_or_else(|e| {
-                error("umount", format_args!("cannot list mount points: {e}"))
-            });
+            let content = fs::read_to_string("/etc/mtab")
+                .unwrap_or_else(|e| error("umount", format_args!("cannot list mount points: {e}")));
             let mut mps: Vec<_> = content
                 .split('\n')
                 .filter_map(|entry| Some(entry.split(' ').nth(1)?.into()))
@@ -50,14 +49,20 @@ pub fn main(args: ArgsOs) {
             for mp in mps.into_iter().rev() {
                 let s = CString::new(mp.as_os_str().as_bytes()).unwrap();
                 unmount_fs(&s).unwrap_or_else(|e| {
-                    error("umount", format_args!("cannot unmount `{}`: {e}", path.display()));
+                    error(
+                        "umount",
+                        format_args!("cannot unmount `{}`: {e}", path.display()),
+                    );
                 });
             }
         }
         [path] => {
             let s = CString::new(args[1].as_bytes()).unwrap();
             unmount_fs(&s).unwrap_or_else(|e| {
-                error("umount", format_args!("cannot unmount `{}`: {e}", path.display()));
+                error(
+                    "umount",
+                    format_args!("cannot unmount `{}`: {e}", path.display()),
+                );
             });
         }
         _ => {

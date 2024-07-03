@@ -1,58 +1,42 @@
 //! The `mkfs` tool allows to create a filesystem on a device.
 
-#![feature(int_roundings)]
-
 mod ext2;
 
 use std::collections::HashMap;
-use std::env;
+use std::env::ArgsOs;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
+use utils::error;
 use utils::prompt::prompt;
 
 /// Structure storing command line arguments.
 #[derive(Default)]
 struct Args {
-    /// The name of the current program used in command line.
-    prog: String,
     /// The select filesystem type.
     fs_type: String,
-
     /// If true, print command line help.
     help: bool,
-
     /// The path to the device file on which the filesystem will be created.
     device_path: Option<PathBuf>,
 }
 
-fn parse_args() -> Args {
-    let mut args: Args = Default::default();
-    let mut iter = env::args();
-
-    args.prog = iter.next().unwrap_or("mkfs".to_owned());
-
-    let fs_type = if args.prog.contains('.') {
-        args.prog.split('.').last()
-    } else {
-        None
-    };
-    args.fs_type = fs_type.unwrap_or("ext2").to_owned();
-
-    for arg in iter {
-        match arg.as_str() {
-            "-h" | "--help" => args.help = true,
+fn parse_args(args: ArgsOs) -> Args {
+    let mut res: Args = Default::default();
+    for arg in args {
+        match arg.to_str() {
+            Some("-h" | "--help") => res.help = true,
             // TODO implement other options
             // TODO get device path
             _ => {
                 // TODO handle case when several devices are given
-                args.device_path = Some(PathBuf::from(arg));
+                res.device_path = Some(PathBuf::from(arg));
             }
         }
     }
-    args
+    res
 }
 
 /// A trait representing an object used to create a filesystem on a device.
@@ -65,8 +49,8 @@ pub trait FSFactory {
     fn create(&self, dev: &mut File) -> io::Result<()>;
 }
 
-fn main() {
-    let args = parse_args();
+pub fn main(fs_name: &str, args: ArgsOs) {
+    let args = parse_args(args);
 
     // TODO build factory according to arguments
     let factories = HashMap::<&str, Box<dyn FSFactory>>::from([(
@@ -74,35 +58,31 @@ fn main() {
         Box::<ext2::Ext2Factory>::default() as Box<dyn FSFactory>,
     )]);
     let factory = factories.get(args.fs_type.as_str()).unwrap_or_else(|| {
-        eprintln!("{}: invalid filesystem type `{}`", args.prog, args.fs_type);
-        exit(1);
+        error(
+            "mkfs",
+            format_args!("invalid filesystem type `{}`", args.fs_type),
+        );
     });
-
     let device_path = args.device_path.unwrap_or_else(|| {
-        eprintln!("{}: specify path to a device", args.prog);
-        exit(1);
+        error("mkfs", "specify path to a device");
     });
-
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .open(&device_path)
         .unwrap_or_else(|e| {
-            eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
-            exit(1);
+            error("mkfs", format_args!("{}: {e}", device_path.display()));
         });
 
     let prev_fs = factories.iter().find(|(_, factory)| {
         factory.is_present(&mut file).unwrap_or_else(|e| {
-            eprintln!("{}: {}: {}", args.prog, device_path.display(), e);
-            exit(1);
+            error("mkfs", format_args!("{}: {e}", device_path.display()));
         })
     });
     if let Some((prev_fs_type, _prev_fs_factory)) = prev_fs {
         println!(
-            "{} contains a file system of type: {}",
-            device_path.display(),
-            prev_fs_type
+            "{} contains a file system of type: {prev_fs_type}",
+            device_path.display()
         );
         // TODO print details on fs (use factory)
 
@@ -114,9 +94,7 @@ fn main() {
             exit(1);
         }
     }
-
     factory.create(&mut file).unwrap_or_else(|e| {
-        eprintln!("{}: failed to create filesystem: {}", args.prog, e);
-        exit(1);
+        error("mkfs", format_args!("failed to create filesystem: {e}"));
     });
 }

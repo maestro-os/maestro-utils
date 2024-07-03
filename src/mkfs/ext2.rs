@@ -1,6 +1,6 @@
 //! Module handling the `ext2` filesystem.
 
-use crate::FSFactory;
+use super::FSFactory;
 use std::cmp::min;
 use std::fs::File;
 use std::io;

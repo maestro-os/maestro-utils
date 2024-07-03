@@ -1,7 +1,7 @@
 //! TODO
 
-use crate::crc32;
-use crate::guid::Guid;
+use super::crc32;
+use super::guid::Guid;
 use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
@@ -49,10 +49,10 @@ fn translate_lba(lba: i64, storage_size: u64) -> Option<u64> {
     }
 }
 
-/// Structure representing a MBR partition.
+/// A MBR partition.
 #[repr(C, packed)]
 #[derive(Clone, Copy, Default)]
-struct MBRPartition {
+struct MbrPartition {
     /// Partition attributes.
     attrs: u8,
     /// CHS address of partition start.
@@ -67,16 +67,16 @@ struct MBRPartition {
     sectors_count: u32,
 }
 
-impl MBRPartition {
+impl MbrPartition {
     /// Tells whether the partition is active.
     pub fn is_active(&self) -> bool {
         self.attrs & (1 << 7) != 0
     }
 }
 
-/// Structure representing a MBR partition table.
+/// A MBR partition table.
 #[repr(C, packed)]
-pub struct MBRTable {
+pub struct MbrTable {
     /// The boot code.
     boot: [u8; 440],
     /// The disk signature (optional).
@@ -84,14 +84,14 @@ pub struct MBRTable {
     /// Zero.
     zero: u16,
     /// The list of partitions.
-    partitions: [MBRPartition; 4],
+    partitions: [MbrPartition; 4],
     /// The partition table signature.
     signature: u16,
 }
 
-/// Structure representing a GPT entry.
+/// A GPT entry.
 #[repr(C, packed)]
-struct GPTEntry {
+struct GptEntry {
     /// The partition type's GUID.
     partition_type: Guid,
     /// The partition's GUID.
@@ -106,10 +106,10 @@ struct GPTEntry {
     name: [u16; 36],
 }
 
-/// Structure representing the GPT header.
+/// The GPT header.
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
-pub struct GPT {
+pub struct Gpt {
     /// The header's signature.
     signature: [u8; 8],
     /// The header's revision.
@@ -889,11 +889,11 @@ impl PartitionTableType {
     pub fn read(&self, dev: &mut File, sectors_count: u64) -> io::Result<Option<Vec<Partition>>> {
         match self {
             Self::Mbr => {
-                let mut buff: [u8; size_of::<MBRTable>()] = [0; size_of::<MBRTable>()];
+                let mut buff: [u8; size_of::<MbrTable>()] = [0; size_of::<MbrTable>()];
                 dev.seek(SeekFrom::Start(0))?;
                 dev.read_exact(&mut buff)?;
 
-                let mbr = unsafe { &*(buff.as_ptr() as *const MBRTable) };
+                let mbr = unsafe { &*(buff.as_ptr() as *const MbrTable) };
                 if mbr.signature != MBR_SIGNATURE {
                     return Ok(None);
                 }
@@ -917,11 +917,11 @@ impl PartitionTableType {
             }
 
             Self::Gpt => {
-                let mut buff: [u8; size_of::<GPT>()] = [0; size_of::<GPT>()];
+                let mut buff: [u8; size_of::<Gpt>()] = [0; size_of::<Gpt>()];
                 dev.seek(SeekFrom::Start(512))?;
                 dev.read_exact(&mut buff)?;
 
-                let hdr = unsafe { &mut *(buff.as_mut_ptr() as *mut GPT) };
+                let hdr = unsafe { &mut *(buff.as_mut_ptr() as *mut Gpt) };
                 // Check signature
                 if hdr.signature != GPT_SIGNATURE {
                     return Ok(None);
@@ -955,7 +955,7 @@ impl PartitionTableType {
                     dev.seek(SeekFrom::Start(off as _))?;
                     dev.read_exact(&mut buff)?;
 
-                    let entry = unsafe { &*(buff.as_ptr() as *const GPTEntry) };
+                    let entry = unsafe { &*(buff.as_ptr() as *const GptEntry) };
 
                     // If entry is unused, skip
                     if entry.guid.0.iter().all(|i| *i == 0) {
@@ -985,8 +985,8 @@ impl PartitionTableType {
         dev: &mut File,
         storage_size: u64,
         hdr_off: i64,
-        hdr: &GPT,
-        parts: &[GPTEntry],
+        hdr: &Gpt,
+        parts: &[GptEntry],
     ) -> io::Result<()> {
         let sector_size = 512; // TODO
 
@@ -994,17 +994,17 @@ impl PartitionTableType {
         let entries_off = translate_lba(hdr.entries_start, storage_size).unwrap() * sector_size;
 
         for (i, entry) in parts.iter().enumerate() {
-            let off = entries_off + i as u64 * size_of::<GPTEntry>() as u64;
+            let off = entries_off + i as u64 * size_of::<GptEntry>() as u64;
 
             let entry_slice = unsafe {
-                slice::from_raw_parts(entry as *const _ as *const _, size_of::<GPTEntry>())
+                slice::from_raw_parts(entry as *const _ as *const _, size_of::<GptEntry>())
             };
             dev.seek(SeekFrom::Start(off))?;
             dev.write_all(entry_slice)?;
         }
 
         let hdr_slice =
-            unsafe { slice::from_raw_parts(hdr as *const _ as *const _, size_of::<GPT>()) };
+            unsafe { slice::from_raw_parts(hdr as *const _ as *const _, size_of::<Gpt>()) };
         dev.seek(SeekFrom::Start(hdr_off))?;
         dev.write_all(hdr_slice)?;
 
@@ -1025,11 +1025,11 @@ impl PartitionTableType {
     ) -> io::Result<()> {
         match self {
             Self::Mbr => {
-                let mut mbr = MBRTable {
+                let mut mbr = MbrTable {
                     boot: [0; 440],
                     disk_signature: 0,
                     zero: 0,
-                    partitions: [MBRPartition::default(); 4],
+                    partitions: [MbrPartition::default(); 4],
                     signature: MBR_SIGNATURE,
                 };
 
@@ -1042,7 +1042,7 @@ impl PartitionTableType {
                     let PartitionType::Mbr(partition_type) = p.part_type else {
                         panic!("invalid partition type of MBR table");
                     };
-                    mbr.partitions[i] = MBRPartition {
+                    mbr.partitions[i] = MbrPartition {
                         attrs: 0,
                         chs_start: [0; 3],
                         partition_type,
@@ -1055,7 +1055,7 @@ impl PartitionTableType {
                 let slice = unsafe {
                     slice::from_raw_parts(
                         (&mbr as *const _ as *const u8).add(mbr.boot.len()),
-                        size_of::<MBRTable>() - mbr.boot.len(),
+                        size_of::<MbrTable>() - mbr.boot.len(),
                     )
                 };
                 dev.seek(SeekFrom::Start(mbr.boot.len() as _))?;
@@ -1085,10 +1085,10 @@ impl PartitionTableType {
                 )?;
 
                 // Primary table
-                let mut gpt = GPT {
+                let mut gpt = Gpt {
                     signature: [0; 8],
                     revision: 0x010000,
-                    hdr_size: size_of::<GPT>() as _,
+                    hdr_size: size_of::<Gpt>() as _,
                     checksum: 0,
                     reserved: 0,
                     hdr_lba: 1,
@@ -1103,13 +1103,13 @@ impl PartitionTableType {
                 };
                 gpt.signature.copy_from_slice(GPT_SIGNATURE);
 
-                let parts: Vec<GPTEntry> = partitions
+                let parts: Vec<GptEntry> = partitions
                     .iter()
                     .map(|p| {
                         let PartitionType::Gpt(partition_type) = p.part_type else {
                             panic!("invalid partition type of GPT table");
                         };
-                        GPTEntry {
+                        GptEntry {
                             partition_type,
                             guid: p.uuid.unwrap(),
                             start: p.start as _,
@@ -1126,13 +1126,13 @@ impl PartitionTableType {
                 let parts_slice = unsafe {
                     slice::from_raw_parts(
                         parts.as_ptr() as *const u8,
-                        parts.len() * size_of::<GPTEntry>(),
+                        parts.len() * size_of::<GptEntry>(),
                     )
                 };
                 gpt.entries_checksum = crc32::compute(parts_slice, &crc32_table);
 
                 let hdr_slice = unsafe {
-                    slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<GPT>())
+                    slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<Gpt>())
                 };
                 gpt.checksum = crc32::compute(hdr_slice, &crc32_table);
 
@@ -1143,7 +1143,7 @@ impl PartitionTableType {
                 gpt.alternate_hdr_lba = 1;
                 gpt.entries_start = -33;
                 let hdr_slice = unsafe {
-                    slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<GPT>())
+                    slice::from_raw_parts(&gpt as *const _ as *const u8, size_of::<Gpt>())
                 };
                 gpt.checksum = crc32::compute(hdr_slice, &crc32_table);
                 Self::write_gpt(dev, sectors_count, -1, &gpt, &parts)?;
