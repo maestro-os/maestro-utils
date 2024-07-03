@@ -1,9 +1,9 @@
 //! The `lsmod` command allows to list loaded kernel modules.
 
-use crate::error;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use utils::error;
 
 /// The path to the modules file.
 const MODULES_PATH: &str = "/proc/modules";

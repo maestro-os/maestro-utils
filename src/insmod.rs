@@ -1,6 +1,5 @@
 //! The `insmod` command loads a module from a file.
 
-use crate::error;
 use std::env::ArgsOs;
 use std::ffi::c_long;
 use std::fs::File;
@@ -8,6 +7,7 @@ use std::io::Error;
 use std::os::fd::AsRawFd;
 use std::process::exit;
 use std::ptr::null;
+use utils::error;
 
 /// The ID of the `finit_module` system call.
 const FINIT_MODULE_ID: c_long = 0x15e;

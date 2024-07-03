@@ -1,8 +1,6 @@
 //! `login` prompts a username/password to authenticate on a new session.
 
-#![feature(never_type)]
-#![feature(os_str_display)]
-
+use std::env::ArgsOs;
 use std::ffi::{CString, OsString};
 use std::fmt::Formatter;
 use std::os::unix::ffi::OsStrExt;
@@ -100,8 +98,7 @@ impl fmt::Display for LoginPrompt {
     }
 }
 
-fn main() {
-    let _args = env::args(); // TODO Parse and use
+pub fn main(_args: ArgsOs) {
     let login_prompt = LoginPrompt(get_hostname());
     loop {
         println!();

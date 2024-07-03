@@ -11,14 +11,8 @@ mod nologin;
 mod ps;
 mod rmmod;
 
-use std::process::exit;
-use std::{env, fmt};
-
-/// Writes an error to stderr, then exits.
-fn error<M: fmt::Display>(bin: &str, msg: M) -> ! {
-    eprintln!("{bin}: error: {msg}");
-    exit(1);
-}
+use std::env;
+use utils::error;
 
 fn main() {
     let mut args = env::args_os();
