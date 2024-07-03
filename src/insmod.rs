@@ -1,11 +1,11 @@
 //! The `insmod` command loads a module from a file.
 
-use std::env;
+use crate::error;
+use std::env::ArgsOs;
 use std::ffi::c_long;
 use std::fs::File;
 use std::io::Error;
 use std::os::fd::AsRawFd;
-use std::path::PathBuf;
 use std::process::exit;
 use std::ptr::null;
 
@@ -20,28 +20,28 @@ fn print_usage() {
     println!("Loads a kernel module from the given file");
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() < 2 {
+pub fn main(args: ArgsOs) {
+    let args: Vec<_> = args.collect();
+    let [path] = args.as_slice() else {
         print_usage();
         exit(1);
-    }
-
-    let filepath = PathBuf::from(&args[1]);
-    let file = File::open(&filepath).unwrap_or_else(|e| {
-        eprintln!("insmod: cannot open file `{}`: {}", filepath.display(), e);
-        exit(1);
+    };
+    let file = File::open(path).unwrap_or_else(|e| {
+        error(
+            "insmod",
+            format_args!("cannot open file `{}`: {e}", path.display()),
+        );
     });
-
     // TODO handle parameters
     let ret = unsafe { libc::syscall(FINIT_MODULE_ID, file.as_raw_fd(), null::<u8>(), 0) };
     if ret < 0 {
-        eprintln!(
-            "insmod: cannot load module `{}`: {}",
-            filepath.display(),
-            Error::last_os_error()
+        error(
+            "insmod",
+            format_args!(
+                "insmod: cannot load module `{}`: {}",
+                path.display(),
+                Error::last_os_error()
+            ),
         );
-        exit(1);
     }
 }

@@ -1,9 +1,11 @@
 //! The `rmmod` command unloads a module.
 
-use std::env;
+use crate::error;
+use std::env::ArgsOs;
 use std::ffi::c_long;
 use std::ffi::CString;
 use std::io::Error;
+use std::os::unix::ffi::OsStrExt;
 use std::process::exit;
 
 /// The ID of the `delete_module` system call.
@@ -17,24 +19,18 @@ fn print_usage() {
     println!("Unloads a kernel module");
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() != 2 {
+pub fn main(args: ArgsOs) {
+    let args: Vec<_> = args.collect();
+    let [name] = args.as_slice() else {
         print_usage();
         exit(1);
-    }
-
-    let name = &args[1];
-    let c_name = CString::new(name.as_bytes()).unwrap(); // TODO handle error
-
-    let ret = unsafe { libc::syscall(DELETE_MODULE_ID, c_name.as_ptr(), 0) };
+    };
+    let name = CString::new(name.as_bytes()).unwrap(); // TODO handle error
+    let ret = unsafe { libc::syscall(DELETE_MODULE_ID, name.as_ptr(), 0) };
     if ret < 0 {
-        eprintln!(
-            "rmmod: cannot unload module `{}`: {}",
-            name,
-            Error::last_os_error()
+        error(
+            "rmmod: cannot unload module `{name}`: {}",
+            Error::last_os_error(),
         );
-        exit(1);
     }
 }

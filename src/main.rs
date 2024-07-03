@@ -1,12 +1,15 @@
 //! Main of all commands that **do not require** the SUID flag.
 
 #![feature(option_get_or_insert_default)]
+#![feature(os_str_display)]
 
 mod dmesg;
+mod insmod;
 mod lsmod;
 mod mount;
 mod nologin;
 mod ps;
+mod rmmod;
 
 use std::process::exit;
 use std::{env, fmt};
@@ -28,9 +31,9 @@ fn main() {
     match bin.as_str() {
         "dmesg" => dmesg::main(),
         "fdisk" => todo!(),
-        "insmod" => todo!(),
+        "insmod" => insmod::main(args),
         "lsmod" => lsmod::main(),
-        "rmmod" => todo!(),
+        "rmmod" => rmmod::main(args),
         bin @ ("mkfs" | "mkfs.ext2") => {
             // TODO change default fs to `ext4` when implemented
             let fs_name = bin.find(".").map(|i| &bin[(i + 1)..]).unwrap_or("ext2");
