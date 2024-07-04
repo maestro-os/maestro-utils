@@ -57,7 +57,7 @@ pub fn main(fs_name: &str, args: ArgsOs) {
         "ext2",
         Box::<ext2::Ext2Factory>::default() as Box<dyn FSFactory>,
     )]);
-    let Some(factory) = factories.get(&args.fs_type) else {
+    let Some(factory) = factories.get(args.fs_type.as_str()) else {
         error(
             "mkfs",
             format_args!("invalid filesystem type `{}`", args.fs_type),
