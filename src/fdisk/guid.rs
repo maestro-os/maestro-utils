@@ -1,9 +1,10 @@
 //! Implementation of a Globally Unique IDentifier used in GPT partition tables.
 
+use rand_core::{OsRng, RngCore};
 use std::fmt;
 use std::str::FromStr;
 
-/// Type representing a Globally Unique IDentifier.
+/// A Globally Unique IDentifier.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(C, packed)]
 pub struct Guid(pub [u8; 16]);
@@ -12,13 +13,13 @@ impl FromStr for Guid {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Validation
         if s.len() != 36 {
             return Err(());
         }
         if s.chars().any(|c| !c.is_alphanumeric() && c != '-') {
             return Err(());
         }
-
         // Parse
         let iter = s
             .chars()
@@ -51,7 +52,7 @@ impl Guid {
     /// Generates a random GUID.
     pub fn random() -> Self {
         let mut buf = [0; 16];
-        utils::util::get_random(&mut buf);
+        OsRng.fill_bytes(&mut buf);
         Self(buf)
     }
 }
@@ -62,23 +63,19 @@ impl fmt::Display for Guid {
             write!(fmt, "{:02x}", self.0[i])?;
         }
         write!(fmt, "-")?;
-
         for i in 0..2 {
             for j in (0..2).rev() {
                 write!(fmt, "{:02x}", self.0[4 + i * 2 + j])?;
             }
             write!(fmt, "-")?;
         }
-
         for i in 8..10 {
             write!(fmt, "{:02x}", self.0[i])?;
         }
         write!(fmt, "-")?;
-
         for i in 10..16 {
             write!(fmt, "{:02x}", self.0[i])?;
         }
-
         Ok(())
     }
 }

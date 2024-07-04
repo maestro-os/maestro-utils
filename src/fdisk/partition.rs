@@ -1,11 +1,10 @@
-//! TODO
+//! Partition tables handling utilities.
 
 use super::crc32;
 use super::guid::Guid;
 use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
-use std::fmt::Display;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -35,17 +34,9 @@ const GPT_CHECKSUM_POLYNOM: u32 = 0xedb88320;
 /// If the LBA is out of bounds of the storage device, the function returns `None`.
 fn translate_lba(lba: i64, storage_size: u64) -> Option<u64> {
     if lba < 0 {
-        if (-lba as u64) <= storage_size {
-            Some(storage_size - (-lba as u64))
-        } else {
-            None
-        }
+        ((-lba as u64) <= storage_size).then_some(storage_size - (-lba as u64))
     } else {
-        if (lba as u64) < storage_size {
-            Some(lba as _)
-        } else {
-            None
-        }
+        ((lba as u64) < storage_size).then_some(lba as _)
     }
 }
 
@@ -823,7 +814,6 @@ impl PartitionTableType {
                     .unwrap_or(false);
                 (extended, 4)
             }
-
             Self::Gpt => (false, 128),
         };
 
@@ -852,10 +842,9 @@ impl PartitionTableType {
             .unwrap_or(first_available);
 
         // Ask last sector
-        let prompt_str = format!(
+        let end = prompt(format_args!(
             "Last sector, +/-sectors or +/-size{{K,M,G,T,P}} ({start}-{last_available}, default {last_available}): ",
-        );
-        let end = prompt(&prompt_str, false)
+        ), false)
             .map(|s| {
                 // TODO parse suffix
                 s.parse::<u64>()
@@ -1189,7 +1178,7 @@ impl FromStr for PartitionType {
     }
 }
 
-impl Display for PartitionType {
+impl fmt::Display for PartitionType {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Mbr(n) => write!(fmt, "{n:x}"),
@@ -1198,7 +1187,7 @@ impl Display for PartitionType {
     }
 }
 
-/// Structure storing informations about a partition.
+/// Information about a partition.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Partition {
     /// The start offset in sectors.
@@ -1233,7 +1222,7 @@ impl fmt::Display for Partition {
     }
 }
 
-/// Structure representing a partition table.
+/// A partition table.
 #[derive(Debug, Eq, PartialEq)]
 pub struct PartitionTable {
     /// The type of the partition table.

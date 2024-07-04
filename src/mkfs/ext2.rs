@@ -1,6 +1,7 @@
 //! Module handling the `ext2` filesystem.
 
 use super::FSFactory;
+use rand_core::{OsRng, RngCore};
 use std::cmp::min;
 use std::fs::File;
 use std::io;
@@ -12,7 +13,6 @@ use std::mem;
 use std::mem::size_of;
 use std::num::NonZeroU32;
 use std::slice;
-use utils::util;
 use utils::util::get_timestamp;
 use utils::util::reinterpret;
 
@@ -438,7 +438,7 @@ impl FSFactory for Ext2Factory {
         let filesystem_id = self.fs_id.unwrap_or_else(|| {
             // Generate a random ID
             let mut id = [0; 16];
-            util::get_random(&mut id);
+            OsRng.fill_bytes(&mut id);
             id
         });
 

@@ -51,13 +51,6 @@ pub fn exec_wait<T, F: FnOnce() -> T>(d: Duration, f: F) -> T {
     result
 }
 
-/// Fills the given buffer with random bytes.
-pub fn get_random(buf: &mut [u8]) {
-    unsafe {
-        libc::getrandom(buf.as_mut_ptr() as _, buf.len(), 0);
-    }
-}
-
 /// A displayable number of bytes.
 pub struct ByteSize(pub u64);
 

@@ -33,16 +33,6 @@ struct Args {
     disks: Vec<PathBuf>,
 }
 
-impl Args {
-    /// Tells whether arguments are valid.
-    fn is_valid(&self) -> bool {
-        if self.help || self.list {
-            return true;
-        }
-        self.disks.len() == 1
-    }
-}
-
 fn parse_args(args: ArgsOs) -> Args {
     let mut res: Args = Default::default();
     for arg in args {
@@ -258,16 +248,10 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
 
 pub fn main(script: bool, args: ArgsOs) {
     let args = parse_args(args);
-
-    if !args.is_valid() {
-        print_usage();
-        exit(1);
-    }
     if args.help {
         print_help(script);
         exit(0);
     }
-
     if args.list {
         let iter = if !args.disks.is_empty() {
             args.disks.into_iter()
@@ -291,14 +275,14 @@ pub fn main(script: bool, args: ArgsOs) {
         }
         return;
     }
-
-    let disk_path = &args.disks[0];
-
+    let Some(disk_path) = args.disks.first() else {
+        print_usage();
+        exit(1);
+    };
     if !script {
         let mut disk = Disk::read(disk_path.clone())
             .unwrap() // TODO handle error
             .unwrap(); // TODO handle error
-
         while let Some(cmd) = prompt("Command (m for help): ", false) {
             handle_cmd(&cmd, disk_path, &mut disk);
         }

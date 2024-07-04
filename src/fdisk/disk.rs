@@ -1,4 +1,4 @@
-//! TODO doc
+//! Disk read/write utilities.
 
 use super::partition::PartitionTable;
 use libc::c_long;
@@ -54,7 +54,7 @@ impl Disk {
         false
     }
 
-    /// Reads a disk's informations from the given device path `dev_path`.
+    /// Reads a disk's information from the given device path `dev_path`.
     ///
     /// If the path doesn't point to a valid device, the function returns None.
     pub fn read(dev_path: PathBuf) -> io::Result<Option<Self>> {
@@ -83,11 +83,7 @@ impl Disk {
             .filter_map(|dev| match dev {
                 Ok(dev) => {
                     let dev_path = dev.path();
-                    if Self::is_valid(&dev_path) {
-                        Some(Ok(dev_path))
-                    } else {
-                        None
-                    }
+                    Self::is_valid(&dev_path).then_some(Ok(dev_path))
                 }
                 Err(e) => Some(Err(e)),
             })
@@ -109,7 +105,6 @@ impl fmt::Display for Disk {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sector_size = 512; // TODO check if this value can be different
         let byte_size = self.size * sector_size;
-
         writeln!(
             fmt,
             "Disk {}: {}, {byte_size} bytes, {} sectors",
@@ -132,11 +127,9 @@ impl fmt::Display for Disk {
         )?;
         writeln!(fmt, "Disklabel type: {}", self.partition_table.table_type)?;
         writeln!(fmt, "Disk identifier: TODO")?; // TODO
-
         if !self.partition_table.partitions.is_empty() {
             writeln!(fmt, "\nDevice\tStart\tEnd\tSectors\tSize\tType")?;
         }
-
         for p in &self.partition_table.partitions {
             writeln!(
                 fmt,
@@ -147,7 +140,6 @@ impl fmt::Display for Disk {
                 ByteSize(p.size)
             )?;
         }
-
         Ok(())
     }
 }
