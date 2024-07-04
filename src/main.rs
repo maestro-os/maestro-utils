@@ -1,6 +1,5 @@
 //! Main of all commands that **do not require** the SUID flag.
 
-#![feature(iter_array_chunks)]
 #![feature(option_get_or_insert_default)]
 #![feature(os_str_display)]
 

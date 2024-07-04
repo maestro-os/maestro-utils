@@ -3,13 +3,6 @@
 //! The `sfdisk` is also implemented in the same program, it has the purpose as `fdisk`, except it
 //! uses scripting instead of prompting.
 
-mod crc32;
-mod disk;
-mod guid;
-mod partition;
-
-use disk::Disk;
-use partition::PartitionTable;
 use std::env::ArgsOs;
 use std::fs;
 use std::fs::OpenOptions;
@@ -19,7 +12,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
+use utils::disk::Disk;
 use utils::error;
+use utils::partition::PartitionTable;
 use utils::prompt::prompt;
 
 /// Structure storing command line arguments.
@@ -208,7 +203,7 @@ fn handle_cmd(cmd: &str, disk_path: &Path, disk: &mut Disk) {
                 }
             }
 
-            match disk::read_partitions(disk.get_path()) {
+            match utils::disk::read_partitions(disk.get_path()) {
                 Ok(_) => println!("Syncing disks."),
                 Err(e) => {
                     eprintln!(

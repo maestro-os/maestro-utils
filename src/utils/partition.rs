@@ -2,6 +2,7 @@
 
 use super::crc32;
 use super::guid::Guid;
+use super::prompt::prompt;
 use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
@@ -15,7 +16,6 @@ use std::mem::size_of;
 use std::path::Path;
 use std::slice;
 use std::str::FromStr;
-use utils::prompt::prompt;
 
 // TODO adapt to disks whose sector size is different than 512
 
