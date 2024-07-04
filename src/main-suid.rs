@@ -6,17 +6,10 @@
 mod login;
 mod su;
 
-use std::env;
-use utils::error;
+use utils::{args, error};
 
 fn main() {
-    let mut args = env::args_os();
-    let bin = args
-        .next()
-        .and_then(|s| s.into_string().ok())
-        .unwrap_or_else(|| {
-            error("mutils", "missing binary name");
-        });
+    let (bin, args) = args();
     match bin.as_str() {
         "login" => login::main(args),
         "su" => su::main(args),

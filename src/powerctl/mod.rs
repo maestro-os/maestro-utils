@@ -6,7 +6,6 @@ use power::halt;
 use power::poweroff;
 use power::reboot;
 use power::suspend;
-use std::env;
 use std::env::ArgsOs;
 use std::process::exit;
 use utils::error;

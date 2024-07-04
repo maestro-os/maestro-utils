@@ -16,17 +16,10 @@ mod ps;
 mod rmmod;
 mod umount;
 
-use std::env;
-use utils::error;
+use utils::{args, error};
 
 fn main() {
-    let mut args = env::args_os();
-    let bin = args
-        .next()
-        .and_then(|s| s.into_string().ok())
-        .unwrap_or_else(|| {
-            error("mutils", "missing binary name");
-        });
+    let (bin, args) = args();
     match bin.as_str() {
         "dmesg" => dmesg::main(),
         "fdisk" => fdisk::main(false, args),
