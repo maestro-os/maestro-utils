@@ -57,15 +57,15 @@ pub fn main(fs_name: &str, args: ArgsOs) {
         "ext2",
         Box::<ext2::Ext2Factory>::default() as Box<dyn FSFactory>,
     )]);
-    let factory = factories.get(args.fs_type.as_str()).unwrap_or_else(|| {
+    let Some(factory) = factories.get(&args.fs_type) else {
         error(
             "mkfs",
             format_args!("invalid filesystem type `{}`", args.fs_type),
         );
-    });
-    let device_path = args.device_path.unwrap_or_else(|| {
+    };
+    let Some(device_path) = args.device_path else {
         error("mkfs", "specify path to a device");
-    });
+    };
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)

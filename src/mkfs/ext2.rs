@@ -78,7 +78,7 @@ const WRITE_REQUIRED_DIRECTORY_BINARY_TREE: u32 = 0x4;
 /// The root inode.
 const ROOT_INODE: u32 = 2;
 
-/// The ext2 superblock structure.
+/// The ext2 superblock.
 #[repr(C, packed)]
 struct Superblock {
     /// Total number of inodes in the filesystem.
@@ -188,8 +188,7 @@ impl Superblock {
     }
 }
 
-/// Structure representing a block group descriptor to be stored into the Block Group Descriptor
-/// Table (BGDT).
+/// A block group descriptor to be stored into the Block Group Descriptor Table (BGDT).
 #[repr(C, packed)]
 struct BlockGroupDescriptor {
     /// The block address of the block usage bitmap.
@@ -331,7 +330,7 @@ impl INode {
 /// Each directory entry represent a file that is the stored in the
 /// directory and points to its inode.
 ///
-/// The name of the entry is not included to prevent the structure from being usized.
+/// The name of the entry is not included to avoid making the structure unsized.
 #[repr(C, packed)]
 pub struct DirectoryEntry {
     /// The inode associated with the entry.
