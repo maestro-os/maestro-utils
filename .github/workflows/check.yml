@@ -1,23 +1,29 @@
 name: Check
 on: push
 jobs:
-  build:
+  clippy:
     runs-on: [self-hosted, linux]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Clippy
+        run: cargo clippy --all-features --all-targets
+  build:
+    runs-on: [self-hosted, linux]
+    needs: clippy
+    steps:
       - name: Debug
-        run: cargo +nightly build
+        run: cargo build
       - name: Release
-        run: cargo +nightly build --release
+        run: cargo build --release
   test:
     runs-on: [self-hosted, linux]
     needs: build
     steps:
-      - uses: actions/checkout@v3
       - name: Test
-        run: cargo +nightly test
+        run: cargo test
   format:
     runs-on: [self-hosted, linux]
+    needs: clippy
     steps:
-      - uses: actions/checkout@v3
-      - run: cargo +nightly fmt --check
+      - name: Check format
+        run: cargo fmt --check
