@@ -11,6 +11,7 @@ mod lsmod;
 mod mkfs;
 mod mount;
 mod nologin;
+mod powerctl;
 mod ps;
 mod rmmod;
 mod umount;
@@ -41,19 +42,11 @@ fn main() {
         "mount" => mount::main(args),
         "umount" => umount::main(args),
         "nologin" => nologin::main(),
-        "powerctl" => todo!(),
-        "halt" => todo!(),
-        "poweroff" => todo!(),
-        "reboot" => todo!(),
-        "shutdown" => todo!(),
-        "suspend" => todo!(),
+        bin @ ("halt" | "poweroff" | "reboot" | "shutdown" | "suspend") => {
+            powerctl::main(bin, args)
+        }
         "ps" => ps::main(),
-        "useradd" => todo!(),
-        "usermod" => todo!(),
-        "userdel" => todo!(),
-        "groupadd" => todo!(),
-        "groupmod" => todo!(),
-        "groupdel" => todo!(),
+        bin @ ("useradd" | "usermod" | "userdel" | "groupadd" | "groupmod" | "groupdel") => todo!(),
         _ => error("mutils", "invalid binary name"),
     }
 }
