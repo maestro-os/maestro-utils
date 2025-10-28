@@ -74,7 +74,7 @@ pub struct User<'s> {
 
 impl User<'_> {
     /// Deserializes entries from the given buffer `buf`.
-    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<User, InvalidEntry>> {
+    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<User<'_>, InvalidEntry>> {
         buf.split('\n')
             .map(|line| {
                 let mut vals = line.split(':');
@@ -150,7 +150,7 @@ pub struct Shadow<'s> {
 
 impl Shadow<'_> {
     /// Deserializes entries from the given buffer `buf`.
-    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<Shadow, InvalidEntry>> {
+    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<Shadow<'_>, InvalidEntry>> {
         buf.split('\n')
             .map(|line| {
                 let mut vals = line.split(':');
@@ -211,7 +211,7 @@ pub struct Group<'s> {
 
 impl Group<'_> {
     /// Deserializes entries from the given buffer `buf`.
-    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<Group, InvalidEntry>> {
+    pub fn deserialize(buf: &str) -> impl Iterator<Item = Result<Group<'_>, InvalidEntry>> {
         buf.split('\n')
             .map(|line| {
                 let mut vals = line.split(':');

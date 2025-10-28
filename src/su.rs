@@ -3,8 +3,8 @@
 use std::env::ArgsOs;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStrExt;
-use std::process::exit;
 use std::process::Command;
+use std::process::exit;
 use utils::error;
 
 use utils::prompt::prompt;

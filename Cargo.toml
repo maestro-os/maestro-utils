@@ -1,7 +1,7 @@
 [package]
 name = "mutils"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "utils"
@@ -17,9 +17,10 @@ path = "src/main-suid.rs"
 
 [dependencies]
 argon2 = { version = "0.5.3", features = ["password-hash"] }
-libc = "0.2.155"
+libc = "0.2.177"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 
 [profile.release]
+lto = true
 panic = "abort"
 strip = true

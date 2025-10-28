@@ -1,8 +1,8 @@
 //! The `rmmod` command unloads a module.
 
 use std::env::ArgsOs;
-use std::ffi::c_long;
 use std::ffi::CString;
+use std::ffi::c_long;
 use std::io::Error;
 use std::os::unix::ffi::OsStrExt;
 use std::process::exit;

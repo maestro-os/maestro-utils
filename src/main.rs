@@ -1,8 +1,5 @@
 //! Main of all commands that **do not require** the SUID flag.
 
-#![feature(option_get_or_insert_default)]
-#![feature(os_str_display)]
-
 mod dmesg;
 mod fdisk;
 mod insmod;

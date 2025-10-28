@@ -2,7 +2,7 @@
 
 use std::env::ArgsOs;
 use std::ffi::CString;
-use std::ffi::{c_ulong, OsStr};
+use std::ffi::{OsStr, c_ulong};
 use std::io;
 use std::io::Error;
 use std::os::unix::ffi::OsStrExt;
@@ -84,7 +84,9 @@ fn print_usage() {
     eprintln!(" -h:\t\tprints usage");
     eprintln!(" -l:\t\tlists mounted filesystems");
     eprintln!(" -a:\t\tmounts every filesystems specified in the /etc/fstab file");
-    eprintln!(" device:\tthe device to mount. If not specified, the command attempts to find the device using the /dev/fstab file");
+    eprintln!(
+        " device:\tthe device to mount. If not specified, the command attempts to find the device using the /dev/fstab file"
+    );
     eprintln!(" dir:\t\tthe directory on which the filesystem is to be mounted");
 }
 

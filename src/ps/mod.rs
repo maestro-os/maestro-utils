@@ -3,13 +3,13 @@
 mod format;
 mod process;
 
-use format::parse_display_format;
 use format::DisplayFormat;
+use format::parse_display_format;
 use process::Process;
 use process::ProcessIterator;
 use std::process::exit;
 use std::{env, fs, io};
-use utils::user::{get_egid, get_euid, Group, User, PASSWD_PATH};
+use utils::user::{Group, PASSWD_PATH, User, get_egid, get_euid};
 
 // TODO Implement every arguments
 // TODO Implement environment variables

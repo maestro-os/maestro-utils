@@ -1,14 +1,14 @@
 //! This module implements prompting.
 
-use libc::tcgetattr;
-use libc::tcsetattr;
-use libc::termios;
 use libc::ECHO;
 use libc::ECHOE;
 use libc::ICANON;
 use libc::STDIN_FILENO;
 use libc::TCSANOW;
 use libc::VMIN;
+use libc::tcgetattr;
+use libc::tcsetattr;
+use libc::termios;
 use std::io::BufRead;
 use std::io::Write;
 use std::mem::MaybeUninit;

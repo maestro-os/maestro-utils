@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::{env, fmt, fs, io, iter};
 use utils::prompt::prompt;
 use utils::user;
-use utils::user::{Shadow, User, PASSWD_PATH, SHADOW_PATH};
+use utils::user::{PASSWD_PATH, SHADOW_PATH, Shadow, User};
 use utils::util;
 use utils::util::get_hostname;
 
