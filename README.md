@@ -31,6 +31,7 @@ maestro-utils provides utility commands for the Maestro operating system:
 	- insmod
 	- rmmod
 	- lsmod
+    - mocklinux
 - Filesystem utilities:
 	- fdisk
 	- sfdisk

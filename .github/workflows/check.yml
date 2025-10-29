@@ -1,6 +1,13 @@
 name: Check
 on: push
 jobs:
+  build_mocklinux:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build mocklinux
+        working-directory: mocklinux
+        run: make
   clippy:
     runs-on: [self-hosted, linux]
     steps:
