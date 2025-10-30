@@ -1,25 +1,26 @@
-[workspace]
+[package]
+name = "mutils"
+version = "0.1.0"
+edition = "2024"
 
-resolver = "2"
+[lib]
+name = "utils"
+path = "src/utils/lib.rs"
 
-members = [
-	"dmesg",
-	"fdisk",
-	"insmod",
-	"login",
-	"lsmod",
-	"mkfs",
-	"mount",
-	"nologin",
-	"powerctl",
-	"ps",
-	"rmmod",
-	"su",
-	"umount",
-	"usrgrp",
-	"utils",
-]
+[[bin]]
+name = "mutils"
+path = "src/main.rs"
+
+[[bin]]
+name = "mutils-suid"
+path = "src/main-suid.rs"
+
+[dependencies]
+argon2 = { version = "0.5.3", features = ["password-hash"] }
+libc = "0.2.177"
+rand_core = { version = "0.6.4", features = ["getrandom"] }
 
 [profile.release]
+lto = true
 panic = "abort"
 strip = true
