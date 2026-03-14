@@ -18,9 +18,6 @@
 
 //! Main of all commands that **require** the SUID flag.
 
-#![feature(never_type)]
-#![feature(os_str_display)]
-
 mod login;
 mod su;
 

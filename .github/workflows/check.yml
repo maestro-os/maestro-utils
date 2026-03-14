@@ -4,14 +4,14 @@ jobs:
   build_mocklinux:
     runs-on: [self-hosted, linux]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build mocklinux
         working-directory: mocklinux
         run: make
   clippy:
     runs-on: [self-hosted, linux]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Clippy
         run: cargo clippy --all-features --all-targets
   build:

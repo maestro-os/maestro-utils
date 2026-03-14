@@ -18,8 +18,6 @@
 
 //! Global utilities for all commands.
 
-#![feature(iter_array_chunks)]
-
 use std::env::ArgsOs;
 use std::path::PathBuf;
 use std::process::exit;
@@ -27,7 +25,6 @@ use std::{env, fmt};
 
 pub mod crc32;
 pub mod disk;
-pub mod guid;
 pub mod partition;
 pub mod prompt;
 pub mod user;

@@ -18,6 +18,7 @@
 
 //! `login` prompts a username/password to authenticate on a new session.
 
+use std::convert::Infallible;
 use std::env::ArgsOs;
 use std::ffi::{CString, OsString};
 use std::fmt::Formatter;
@@ -50,7 +51,7 @@ fn build_env_var(name: &str, value: impl IntoIterator<Item = u8>) -> CString {
 /// Arguments:
 /// - `logname` is the name of the user used to log in.
 /// - `user` is the user to switch to.
-fn switch_user(logname: &str, user: User) -> io::Result<!> {
+fn switch_user(logname: &str, user: User) -> io::Result<Infallible> {
     let User {
         login_name,
         uid,
@@ -145,10 +146,9 @@ pub fn main(_args: ArgsOs) {
                         eprintln!("login: cannot read passwd file: {e}");
                         exit(1);
                     });
-                    let c = Shadow::deserialize(&shadow_buff)
+                    Shadow::deserialize(&shadow_buff)
                         .filter_map(Result::ok)
-                        .any(|e| e.login_name == login && e.check_password(&pass));
-                    c
+                        .any(|e| e.login_name == login && e.check_password(&pass))
                 }
             };
             if !correct {

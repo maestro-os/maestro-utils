@@ -19,7 +19,6 @@
 //! Partition tables handling utilities.
 
 use super::crc32;
-use super::guid::Guid;
 use super::prompt::prompt;
 use std::cmp::max;
 use std::cmp::min;
@@ -34,6 +33,7 @@ use std::mem::size_of;
 use std::path::Path;
 use std::slice;
 use std::str::FromStr;
+use uuid::Uuid;
 
 // TODO adapt to disks whose sector size is different than 512
 
@@ -102,9 +102,9 @@ pub struct MbrTable {
 #[repr(C, packed)]
 struct GptEntry {
     /// The partition type's GUID.
-    partition_type: Guid,
+    partition_type: Uuid,
     /// The partition's GUID.
-    guid: Guid,
+    guid: Uuid,
     /// The starting LBA.
     start: i64,
     /// The ending LBA.
@@ -138,7 +138,7 @@ pub struct Gpt {
     /// The last usable sector.
     last_usable: i64,
     /// The disk's GUID.
-    disk_guid: Guid,
+    disk_guid: Uuid,
     /// The LBA of the beginning of the GUID partition entries array.
     entries_start: i64,
     /// The number of entries in the table.
@@ -877,7 +877,7 @@ impl PartitionTableType {
         // TODO use other values?
         let part_type = match self {
             Self::Mbr => PartitionType::Mbr(0),
-            Self::Gpt => PartitionType::Gpt(Guid([0; 16])),
+            Self::Gpt => PartitionType::Gpt(Uuid::nil()),
         };
 
         Partition {
@@ -965,7 +965,7 @@ impl PartitionTableType {
                     let entry = unsafe { &*(buff.as_ptr() as *const GptEntry) };
 
                     // If entry is unused, skip
-                    if entry.guid.0.iter().all(|i| *i == 0) {
+                    if entry.guid.as_bytes().iter().all(|i| *i == 0) {
                         continue;
                     }
 
@@ -1102,7 +1102,7 @@ impl PartitionTableType {
                     alternate_hdr_lba: -1,
                     first_usable: 34,
                     last_usable: -34,
-                    disk_guid: Guid::random(),
+                    disk_guid: Uuid::new_v4(),
                     entries_start: 2,
                     entries_number: partitions.len() as _,
                     entry_size: 128,
@@ -1176,7 +1176,7 @@ pub enum PartitionType {
     /// MBR partition type.
     Mbr(u8),
     /// GPT partition type.
-    Gpt(Guid),
+    Gpt(Uuid),
 }
 
 impl Default for PartitionType {
@@ -1189,7 +1189,7 @@ impl FromStr for PartitionType {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Guid::from_str(s)
+        Uuid::from_str(s)
             .map(Self::Gpt)
             .or_else(|_| u8::from_str_radix(s, 16).map(Self::Mbr))
             .map_err(|_| ())
@@ -1217,7 +1217,7 @@ pub struct Partition {
     pub part_type: PartitionType,
 
     /// The partition's UUID.
-    pub uuid: Option<Guid>,
+    pub uuid: Option<Uuid>,
 
     /// Tells whether the partition is bootable.
     pub bootable: bool,
@@ -1375,7 +1375,7 @@ impl FromStr for PartitionTable {
                             let Some(val) = value else {
                                 return Err("`uuid` requires a value".into());
                             };
-                            let Ok(val) = Guid::from_str(val) else {
+                            let Ok(val) = Uuid::from_str(val) else {
                                 return Err(format!("Invalid value for `uuid`: {val}"));
                             };
                             part.uuid = Some(val);
@@ -1423,7 +1423,9 @@ mod test {
 
                 part_type: PartitionType::Mbr(0xab),
 
-                uuid: Some(Guid([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])),
+                uuid: Some(Uuid::from_bytes([
+                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                ])),
 
                 bootable: false,
             }],

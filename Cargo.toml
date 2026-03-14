@@ -19,6 +19,7 @@ path = "src/main-suid.rs"
 argon2 = { version = "0.5.3", features = ["password-hash"] }
 libc = "0.2.177"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
+uuid = { version = "1.22.0", features = ["v4"] }
 
 [profile.release]
 lto = true
