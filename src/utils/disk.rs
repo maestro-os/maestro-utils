@@ -46,24 +46,31 @@ macro_rules! ior {
 
 /// ioctl command: Read a partitions table.
 const BLKRRPART: libc::c_long = 0x125f;
-/// ioctl command: Get size of disk in number of sectors.
+/// ioctl command: Get size of disk in bytes.
 const BLKGETSIZE64: c_long = ior!(0x12, 114, u64);
+/// ioctl command: Get logical sector size in bytes.
+const BLKSSZGET: libc::c_ulong = 0x1268;
 
-/// Returns the number of sectors on the given device.
-pub fn get_disk_size(dev: &File) -> io::Result<u64> {
+/// Returns the sector size in bytes and the total size in bytes, for the given device.
+pub fn get_disk_size(dev: &File) -> io::Result<(u32, u64)> {
     let metadata = dev.metadata()?;
     let file_type = metadata.file_type();
     if file_type.is_block_device() || file_type.is_char_device() {
-        let mut size = 0;
-        let ret = unsafe { ioctl(dev.as_raw_fd(), BLKGETSIZE64 as _, &mut size) };
+        let mut sector_size: libc::c_int = 0;
+        let mut total_bytes: u64 = 0;
+        let ret = unsafe { ioctl(dev.as_raw_fd(), BLKSSZGET, &mut sector_size) };
         if ret < 0 {
             return Err(Error::last_os_error());
         }
-        Ok(size / 512)
+        let ret = unsafe { ioctl(dev.as_raw_fd(), BLKGETSIZE64 as _, &mut total_bytes) };
+        if ret < 0 {
+            return Err(Error::last_os_error());
+        }
+        Ok((sector_size as u32, total_bytes))
     } else if file_type.is_file() {
-        Ok(metadata.len() / 512)
+        Ok((512, metadata.len()))
     } else {
-        Ok(0)
+        Ok((512, 0))
     }
 }
 
@@ -87,12 +94,15 @@ pub fn read_partitions(path: &Path) -> io::Result<()> {
 
 /// A disk, containing partitions.
 pub struct Disk {
-    /// The path to the disk's device file.
+    /// The path to the disk's device file
     dev_path: PathBuf,
-    /// The size of the disk in number of sectors.
-    size: u64,
     /// The open device.
     dev: File,
+
+    /// The size of a sector on the disk
+    sector_size: u32,
+    /// The size of the disk in bytes
+    size: u64,
 
     /// The partition table.
     pub partition_table: PartitionTable,
@@ -128,14 +138,17 @@ impl Disk {
     /// If the path doesn't point to a valid device, the function returns None.
     pub fn read(dev_path: PathBuf) -> io::Result<Option<Self>> {
         let mut dev = OpenOptions::new().read(true).write(true).open(&dev_path)?;
-        let Ok(size) = get_disk_size(&dev) else {
+        let Ok((sector_size, size)) = get_disk_size(&dev) else {
             return Ok(None);
         };
-        let partition_table = PartitionTable::read(&mut dev, size)?;
+        let sectors_count = size / sector_size as u64;
+        let partition_table = PartitionTable::read(&mut dev, sectors_count)?;
         Ok(Some(Self {
             dev_path,
-            size,
             dev,
+
+            sector_size,
+            size,
 
             partition_table,
         }))
@@ -159,40 +172,50 @@ impl Disk {
             .collect()
     }
 
-    /// Returns the path to the device file of the disk.
+    /// Returns the path to the device file of the disk
+    #[inline]
     pub fn get_path(&self) -> &Path {
         &self.dev_path
     }
 
-    /// Returns the size of the disk in number of sectors.
-    pub fn get_size(&self) -> u64 {
+    /// Returns the sector size on the disk
+    #[inline]
+    pub fn sector_size(&self) -> u32 {
+        self.sector_size
+    }
+
+    /// Returns the size of the disk in bytes
+    #[inline]
+    pub fn size(&self) -> u64 {
         self.size
     }
 }
 
 impl fmt::Display for Disk {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let sector_size = 512; // TODO check if this value can be different
-        let byte_size = self.size * sector_size;
         writeln!(
             fmt,
-            "Disk {}: {}, {byte_size} bytes, {} sectors",
+            "Disk {}: {}, {} bytes, {} sectors",
             self.dev_path.display(),
-            ByteSize(byte_size),
-            self.size
+            ByteSize(self.size),
+            self.size,
+            self.size / self.sector_size as u64
         )?;
         writeln!(fmt, "Disk model: TODO")?; // TODO
         writeln!(
             fmt,
             "Units: sectors of 1 * {sector_size} = {sector_size} bytes",
+            sector_size = self.sector_size,
         )?;
         writeln!(
             fmt,
-            "Sector size (logical/physical): {sector_size} bytes / {sector_size} bytes"
+            "Sector size (logical/physical): {sector_size} bytes / {sector_size} bytes",
+            sector_size = self.sector_size,
         )?;
         writeln!(
             fmt,
             "I/O size (minimum/optimal): {sector_size} bytes / {sector_size} bytes",
+            sector_size = self.sector_size,
         )?;
         writeln!(fmt, "Disklabel type: {}", self.partition_table.table_type)?;
         writeln!(fmt, "Disk identifier: TODO")?; // TODO

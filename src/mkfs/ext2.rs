@@ -422,10 +422,9 @@ impl FSFactory for Ext2Factory {
     fn create(&self, dev: &mut File) -> io::Result<()> {
         let create_timestamp = get_timestamp().as_secs() as u32;
 
-        let sector_size = 512; // TODO get from device
         let len = match self.len {
             Some(len) => len,
-            None => utils::disk::get_disk_size(dev)? * sector_size,
+            None => utils::disk::get_disk_size(dev)?.1,
         };
 
         let block_size = self.block_size.unwrap_or(DEFAULT_BLOCK_SIZE);
