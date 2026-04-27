@@ -16,27 +16,24 @@
  * Maestro. If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::{error::Error, fs, io::ErrorKind, path::Path};
+use std::{error::Error, fs, io::ErrorKind, os::unix, path::Path};
 
 /// Creates the FHS folder hierarchy on the disk.
 ///
 /// - `sysroot` is the path to the FHS system root.
-/// - `log` is whether to print on directory creation or not.
+/// - `log` is whether to print on creation or not.
 pub fn create_dirs(sysroot: &Path, log: bool) -> Result<(), Box<dyn Error>> {
-    let paths = &[
-        "bin",
+    let dirs = &[
         "boot",
         "dev",
         "etc",
         "home",
-        "lib",
         "media",
         "mnt",
         "opt",
         "proc",
         "root",
         "run",
-        "sbin",
         "srv",
         "sys",
         "tmp",
@@ -44,12 +41,12 @@ pub fn create_dirs(sysroot: &Path, log: bool) -> Result<(), Box<dyn Error>> {
         "var",
         "etc/opt",
         "etc/sysconfig",
-        "lib/firmware",
         "run/lock",
         "run/log",
         "usr/bin",
         "usr/include",
         "usr/lib",
+        "usr/lib/firmware",
         "usr/local",
         "usr/sbin",
         "usr/share",
@@ -79,12 +76,30 @@ pub fn create_dirs(sysroot: &Path, log: bool) -> Result<(), Box<dyn Error>> {
         "var/spool",
         "var/lib/misc",
     ];
-    for path in paths {
+    for path in dirs {
         if log {
             println!("Create directory `{path}`");
         }
         let path = sysroot.join(path);
         match fs::create_dir(path) {
+            Ok(_) => {}
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e.into()),
+        }
+    }
+    let links: &[(&str, &str)] = &[
+        ("usr/bin", "bin"),
+        ("usr/sbin", "sbin"),
+        ("usr/lib", "lib"),
+        ("usr/lib", "lib64"),
+        ("lib", "usr/lib64"),
+    ];
+    for (target, link) in links {
+        if log {
+            println!("Create symlink `{link}` -> `{target}`");
+        }
+        let path = sysroot.join(link);
+        match unix::fs::symlink(target, &path) {
             Ok(_) => {}
             Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
             Err(e) => return Err(e.into()),
