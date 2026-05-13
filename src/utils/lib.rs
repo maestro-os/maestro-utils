@@ -25,7 +25,6 @@ use std::{env, fmt};
 
 pub mod crc32;
 pub mod disk;
-pub mod fhs;
 pub mod partition;
 pub mod prompt;
 pub mod user;
